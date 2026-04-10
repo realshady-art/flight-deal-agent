@@ -4,9 +4,33 @@
 定时触发 → 采集报价 → 落库 → 规则筛选 → 通知 + 汇总。  
 本地可用，也预留了 API 和调度器供日后部署到服务器。
 
+**仓库**：https://github.com/realshady-art/flight-deal-agent  
+
 ---
 
-## 现状（v0.2.1）
+## 项目进度（移交说明）
+
+**当前版本**：v0.2.1（以 `flight_deal_agent/__init__.py` 与 `pyproject.toml` 为准）
+
+**已完成（可在另一台机器上直接 clone验证）**
+
+- 后端流水线：`run-once` = 规划任务 → 采集（stub / Amadeus）→ SQLite 落库 → 策略筛选 → stdout 通知 → 运行日志。
+- **Amadeus**：OAuth2 + Flight Inspiration（扫目的地）+ Flight Offers Search（补漏/复核思路在 `collector.py`）；免费层需自行注册密钥。
+- **配置**：YAML + `data/regions/*.yaml` 机场池；`python-dotenv` 自动加载根目录 `.env`。
+- **命令**：`run-once`、`serve`（FastAPI + APScheduler）、`check-config`、`verify-amadeus`（`--oauth-only` 可选）。
+- **HTTP API**：健康检查、deals/quotes/runs、手动触发、调度器启停、脱敏配置（见下文 API 表）。
+- **测试**：`pytest` 全量应通过（当前约 35+ 条，以本机 `pytest -v` 为准）。
+
+**未完成 / 未接入**
+
+- 前端 UI（仅 REST 预留）。
+- Telegram / Email通知（`notifier.py` 仅占位）。
+- 第二数据源、生产环境配额与成本监控、告警运维面板。
+- 与 Clockwork 等外部调度器的正式对接文档（当前可用系统 cron 或自带 `serve` 内调度）。
+
+---
+
+## 现状（v0.2.1）功能一览
 
 | 模块 | 状态 |
 |------|------|
@@ -21,7 +45,68 @@
 | 通知：Telegram / Email | 预留接口 |
 | APScheduler 定时调度 | 可用 |
 | FastAPI（未来前端接口） | 可用 |
-| pytest | 全部通过 |
+| pytest | 全部通过（移交后请在目标机执行 `pytest -v` 复核） |
+
+---
+
+## 待办事项（TODO / Backlog）
+
+按优先级大致排序，供下一台机器上的同事继续开发。
+
+| 优先级 | 事项 | 说明 |
+|--------|------|------|
+| P0 | 配置 Amadeus 生产/测试密钥 | 见下文「下一步：在新环境跑起来」；密钥只放 `.env`，勿提交仓库。 |
+| P1 | 根据配额调 `request_budget_per_run` 与 `scheduler.interval_hours` | 避免超额；可按航线分层轮询（代码里 orchestrator 仍可增强）。 |
+| P1 | 实现 Telegram或邮件通知 | 改 `notifier.py`，配置项可扩到 `config.yaml` 的 `alerts`。 |
+| P2 | Flight Offers **二次复核**策略细化 | Inspiration 为缓存价；文档已建议命中后再 Offers，可按 deal 阈值触发复核以减 API 次数。 |
+| P2 | 前端 | 对接现有 FastAPI（`/api/*`），或新增鉴权（Token / Cookie）。 |
+| P2 | 服务器部署 | systemd / Docker、`127.0.0.1` 反代、HTTPS、日志轮转；`.env` 权限 `600`。 |
+| P3 | 多用户 / 多配置 | 当前单配置文件；若产品化需租户模型与 DB 迁移。 |
+| P3 | 更多 collector adapter | 在 `collector.py` 或拆分子包，保持 `provider` 枚举一致。 |
+
+---
+
+## 下一步：在新机器 / 服务器上怎么做**1. 拉代码与环境**
+
+```bash
+git clone https://github.com/realshady-art/flight-deal-agent.git
+cd flight-deal-agent
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -U pip && pip install -e ".[dev]"
+pytest -v    # 确认测试通过
+```
+
+**2. 配置（二选一或并存）**
+
+- **仅验证流水线、不调外网**：`cp config/config.example.yaml config/config.yaml`，保持 `collector.provider: stub`。
+- **真实询价**：`cp .env.example .env`，填入 Amadeus；`cp config/config.amadeus.example.yaml config/config.yaml`；改出发地、区域、阈值。
+
+**3. 验证 Amadeus（有密钥后）**
+
+```bash
+python -m flight_deal_agent verify-amadeus
+# 或仅测 OAuth2：python -m flight_deal_agent verify-amadeus --oauth-only
+python -m flight_deal_agent check-config
+python -m flight_deal_agent run-once
+```
+
+**4. 常驻服务（服务器）**
+
+```bash
+python -m flight_deal_agent serve
+# 监听地址与端口见 config.yaml → api.host / api.port；默认 127.0.0.1:8000
+# 仅 API、不用内置调度：python -m flight_deal_agent serve --no-scheduler
+# 也可用系统 cron 每小时：python -m flight_deal_agent run-once -c /path/to/config.yaml
+```
+
+**5. 移交检查清单（建议打勾）**
+
+- [ ] `pytest -v` 全绿  
+- [ ] `verify-amadeus` 通过（若使用 Amadeus）  
+- [ ] `config/config.yaml` 与 `data/regions/*` 已按业务改好  
+- [ ] `.env` 已在目标机创建且权限安全  
+- [ ] SQLite 路径 `storage.sqlite_path` 在磁盘上有写权限、已考虑备份  
+- [ ] 若公网暴露 API：已加反向代理 + TLS + 访问控制（当前 API **无鉴权**）
 
 ---
 
@@ -119,7 +204,7 @@ flight-deal-agent/
 │   ├── notifier.py              # 通知（stdout / 预留）
 │   ├── scheduler.py             # APScheduler 定时
 │   └── api.py                   # FastAPI（前端预留）
-├── tests/                       # pytest（31 cases）
+├── tests/                       # pytest（条数以 pytest收集为准）
 ├── pyproject.toml
 └── README.md
 ```
@@ -139,15 +224,6 @@ flight-deal-agent/
 | GET | `/api/scheduler/status` | 调度器状态 |
 | POST | `/api/scheduler/start` | 启动调度 |
 | POST | `/api/scheduler/stop` | 停止调度 |
-
----
-
-## 后续开发
-
-1. 接入 Telegram / Email 通知渠道
-2. 前端 Web UI 对接 FastAPI
-3. 更多数据源 adapter
-4. 部署到云服务器 + Clockwork / cron
 
 ---
 

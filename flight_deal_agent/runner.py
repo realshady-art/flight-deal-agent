@@ -1,50 +1,76 @@
+"""run_once: the main single-pass pipeline."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flight_deal_agent.analyst import evaluate_deals
 from flight_deal_agent.collector import collect_quotes
+from flight_deal_agent.models import RunSummary
 from flight_deal_agent.notifier import notify_deals
 from flight_deal_agent.orchestrator import plan_tasks
 from flight_deal_agent.settings import AppConfig, load_app_config, load_region_airports
-from flight_deal_agent.storage import persist_quotes
+from flight_deal_agent.storage import init_db, log_run, persist_quotes
 
-
-@dataclass
-class RunSummary:
-    task_count: int
-    quote_count: int
-    deal_count: int
+logger = logging.getLogger(__name__)
 
 
 def run_once(
     config_path: Path,
     *,
     regions_dir: Path,
-    demo_notification: bool = False,
 ) -> RunSummary:
+    run_id = uuid.uuid4().hex[:12]
+    started = datetime.now(tz=timezone.utc)
+    errors = []
+
     config = load_app_config(config_path)
+    db_path = Path(config.storage.sqlite_path)
+    init_db(db_path)
+
     airports = load_region_airports(regions_dir, config.target_region_id)
     tasks = plan_tasks(config, airports)
+    logger.info("[%s] planned %d tasks", run_id, len(tasks))
 
-    if demo_notification:
-        from flight_deal_agent.collector import make_demo_quote
-        from flight_deal_agent.models import DealCandidate
+    try:
+        quotes, api_calls = collect_quotes(config, tasks, run_id)
+    except Exception as exc:
+        logger.error("Collection failed: %s", exc, exc_info=True)
+        quotes, api_calls = [], 0
+        errors.append(str(exc))
 
-        if not tasks:
-            quotes = []
-        else:
-            quotes = [make_demo_quote(tasks[0], config.currency)]
-        deals = [
-            DealCandidate(quote=quotes[0], reason="演示：验证 notifier 与配置加载")
-        ] if quotes else []
-        notify_deals(config, deals)
-        return RunSummary(task_count=len(tasks), quote_count=len(quotes), deal_count=len(deals))
+    persisted = persist_quotes(db_path, quotes)
+    logger.info("[%s] persisted %d quotes", run_id, persisted)
 
-    quotes = collect_quotes(config, tasks)
-    db_path = Path(config.storage.sqlite_path)
-    persist_quotes(db_path, quotes)
-    deals = evaluate_deals(config, quotes)
-    notify_deals(config, deals)
-    return RunSummary(task_count=len(tasks), quote_count=len(quotes), deal_count=len(deals))
+    try:
+        deals = evaluate_deals(config, quotes, db_path)
+    except Exception as exc:
+        logger.error("Analysis failed: %s", exc, exc_info=True)
+        deals = []
+        errors.append(str(exc))
+
+    try:
+        notify_deals(config, deals, db_path)
+    except Exception as exc:
+        logger.error("Notification failed: %s", exc, exc_info=True)
+        errors.append(str(exc))
+
+    finished = datetime.now(tz=timezone.utc)
+    summary = RunSummary(
+        run_id=run_id,
+        started_at=started,
+        finished_at=finished,
+        task_count=len(tasks),
+        api_calls=api_calls,
+        quote_count=len(quotes),
+        deal_count=len(deals),
+        errors=errors,
+    )
+    try:
+        log_run(db_path, summary)
+    except Exception:
+        logger.warning("Failed to log run", exc_info=True)
+
+    return summary

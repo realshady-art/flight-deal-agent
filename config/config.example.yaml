@@ -1,43 +1,47 @@
-# 复制为 config/config.yaml 并按需修改（config.yaml 建议加入 .gitignore 若含隐私）
-
 app:
   name: "flight-deal-agent"
   timezone: "Asia/Shanghai"
 
-# 出发机场 IATA 三字码列表
 origin_airports:
   - PVG
 
-# 目的地区域：对应 data/regions/<id>.yaml 中的机场池
 target_region_id: "example_europe"
 
 trip:
-  type: "round_trip" # 第一版以往返为主
-  # 不指定固定出发日：由扫描器在窗口内组合（具体逻辑在 collector 中实现）
+  type: "round_trip"
   date_window:
     min_days_ahead: 14
     max_days_ahead: 90
     min_trip_nights: 4
     max_trip_nights: 14
+    sample_every_n_days: 7
+    trip_night_samples: [5, 7, 10]
 
 currency: "CNY"
 
-# 询价与存储（占位：接入真实 API 后填写）
 collector:
-  provider: "stub" # stub | amadeus | skyscanner | ...
-  request_budget_per_run: 50 # 每轮最多发起多少次报价请求（防配额爆掉）
+  provider: "stub"  # stub | amadeus
+  request_budget_per_run: 30
+
+amadeus:
+  test_mode: true
 
 storage:
   sqlite_path: "data/state/quotes.db"
 
 alerts:
-  channel: "stdout" # stdout | telegram | ...（除 stdout 外均未实现）
+  channel: "stdout"  # stdout | (预留 telegram / email)
   digest_interval_hours: 6
-  cooldown_hours: 24 # 同一条航线组合的最小提醒间隔
-  # 价格再次明显下降才重复提醒（占位）
+  cooldown_hours: 24
   renotify_price_drop_pct: 8
 
 thresholds:
-  # 以下为占位阈值；真实策略在 analyst 中用代码实现
-  max_total_price: null # 例如 4500 表示含税总价上限
-  below_historical_median_pct: null # 例如 35 表示低于历史中位价 35% 才报
+  max_total_price: null        # 例如 4500（含税总价上限，null = 不限）
+  below_median_pct: null       # 例如 35（低于历史中位价 35% 才报，null = 不限）
+
+scheduler:
+  interval_hours: 1
+
+api:
+  host: "127.0.0.1"
+  port: 8000

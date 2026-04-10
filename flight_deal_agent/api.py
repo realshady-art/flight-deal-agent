@@ -15,7 +15,7 @@ from flight_deal_agent.storage import (
     init_db,
 )
 
-app = FastAPI(title="flight-deal-agent", version="0.2.0")
+app = FastAPI(title="flight-deal-agent", version="0.2.1")
 
 _config_path: Optional[Path] = None
 _regions_dir: Optional[Path] = None

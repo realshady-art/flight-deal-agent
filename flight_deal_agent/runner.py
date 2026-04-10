@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from flight_deal_agent.env import load_app_env
 from flight_deal_agent.analyst import evaluate_deals
 from flight_deal_agent.collector import collect_quotes
 from flight_deal_agent.models import RunSummary
@@ -22,6 +23,7 @@ def run_once(
     *,
     regions_dir: Path,
 ) -> RunSummary:
+    load_app_env()
     run_id = uuid.uuid4().hex[:12]
     started = datetime.now(tz=timezone.utc)
     errors = []

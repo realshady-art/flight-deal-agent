@@ -66,16 +66,42 @@ def cmd_check_config(args: argparse.Namespace) -> None:
         print(f"  origins     : {config.origin_airports}")
         print(f"  region      : {config.target_region_id} ({len(airports)} airports)")
         print(f"  provider    : {config.collector.provider}")
+        print(f"  amadeus env : test_mode={config.amadeus.test_mode}")
         print(f"  currency    : {config.currency}")
         print(f"  budget/run  : {config.collector.request_budget_per_run}")
         print(f"  db          : {config.storage.sqlite_path}")
         print(f"  channel     : {config.alerts.channel}")
+        if config.collector.provider == "amadeus":
+            cid = config.amadeus.client_id
+            sec = config.amadeus.client_secret
+            if not cid or not sec:
+                print(
+                    "  WARNING     : provider=amadeus 但 .env 中缺少 API 密钥，"
+                    "请设置 AMADEUS_CLIENT_ID / AMADEUS_CLIENT_SECRET",
+                    file=sys.stderr,
+                )
+            else:
+                preview = f"{cid[:6]}…" if len(cid) > 6 else cid
+                print(f"  amadeus key : client_id 已设置（{preview}）")
     except Exception as exc:
         print(f"Config ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
+def cmd_verify_amadeus(args: argparse.Namespace) -> None:
+    from flight_deal_agent.amadeus_verify import verify_amadeus_live
+    from flight_deal_agent.settings import load_app_config
+    config = load_app_config(args.config)
+    ok, msg = verify_amadeus_live(config, oauth_only=args.oauth_only)
+    print(f"[verify-amadeus] {msg}")
+    if not ok:
+        sys.exit(1)
+
+
 def main() -> None:
+    from flight_deal_agent.env import load_app_env
+    load_app_env()
+
     parser = argparse.ArgumentParser(description="航班特价监控 agent")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -99,6 +125,17 @@ def main() -> None:
 
     sub.add_parser("check-config", parents=[shared], help="校验配置")
 
+    v_p = sub.add_parser(
+        "verify-amadeus",
+        parents=[shared],
+        help="验证 Amadeus .env 密钥（OAuth2 + 可选 Inspiration 探测）",
+    )
+    v_p.add_argument(
+        "--oauth-only",
+        action="store_true",
+        help="只测 OAuth2，不请求 Inspiration（省一次业务 API）",
+    )
+
     args = parser.parse_args()
     _setup_logging(args.verbose)
 
@@ -106,6 +143,7 @@ def main() -> None:
         "run-once": cmd_run_once,
         "serve": cmd_serve,
         "check-config": cmd_check_config,
+        "verify-amadeus": cmd_verify_amadeus,
     }[args.command]
     handler(args)
 

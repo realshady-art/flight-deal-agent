@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flight-deal-agent"
-version = "0.2.0"
+version = "0.2.1"
 description = "按区域监控往返特价航班的 agentic 后端"
 readme = "README.md"
 license = "MIT"
@@ -13,6 +13,7 @@ authors = [{ name = "Jeffrey Deng" }]
 keywords = ["flights", "travel", "agent", "monitoring"]
 dependencies = [
     "httpx>=0.27",
+    "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "pydantic>=2.5",
     "apscheduler>=3.10,<4",

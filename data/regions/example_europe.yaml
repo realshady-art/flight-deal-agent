@@ -1,0 +1,12 @@
+# 示例：欧洲区域 → 机场池（产品侧自维护；非完整列表，仅作模板）
+id: "example_europe"
+label: "示例：西欧枢纽（可自行增删）"
+airports:
+  - LHR
+  - CDG
+  - AMS
+  - FRA
+  - ZRH
+  - MAD
+  - BCN
+  - FCO

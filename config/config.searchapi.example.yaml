@@ -5,7 +5,7 @@ app:
 origin_airports:
   - YVR
 
-target_region_id: "us_ca_major"
+target_region_id: "us_ca_all_scheduled"
 
 trip:
   type: "round_trip"
@@ -21,7 +21,7 @@ currency: "USD"
 
 collector:
   provider: "searchapi"
-  request_budget_per_run: 30
+  request_budget_per_run: 100000
 
 searchapi:
   gl: "us"
@@ -42,7 +42,8 @@ thresholds:
   lowest_n_per_run: 5
 
 scheduler:
-  interval_minutes: 10
+  interval_hours: 1
+  interval_minutes: null
 
 api:
   host: "127.0.0.1"

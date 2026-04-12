@@ -22,6 +22,10 @@ from flight_deal_agent.settings import AmadeusConfig, AppConfig, SearchApiConfig
 logger = logging.getLogger(__name__)
 
 
+class SearchApiQuotaExceededError(RuntimeError):
+    """Raised when SearchApi rejects a request because the monthly quota is exhausted."""
+
+
 # ---------------------------------------------------------------------------
 # Amadeus HTTP client (uses httpx, no SDK dependency)
 # ---------------------------------------------------------------------------
@@ -156,6 +160,13 @@ class SearchApiClient:
         )
         if resp.status_code == 200:
             return resp.json()
+        if resp.status_code == 429:
+            try:
+                payload = resp.json()
+                message = payload.get("error") or resp.text
+            except Exception:
+                message = resp.text
+            raise SearchApiQuotaExceededError(message)
         logger.warning(
             "SearchApi search %s->%s %s → HTTP %s: %s",
             task.origin,

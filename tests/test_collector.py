@@ -3,13 +3,15 @@ from decimal import Decimal
 from pathlib import Path
 
 from flight_deal_agent.collector import (
+    SearchApiClient,
+    SearchApiQuotaExceededError,
     _parse_inspiration_item,
     _parse_offer,
     _parse_searchapi_flight,
     collect_quotes,
 )
 from flight_deal_agent.orchestrator import SearchTask
-from flight_deal_agent.settings import load_app_config
+from flight_deal_agent.settings import SearchApiConfig, load_app_config
 
 
 def test_parse_inspiration_item():
@@ -143,3 +145,32 @@ def test_collect_quotes_searchapi(tmp_config: Path, monkeypatch):
     assert len(quotes) == 1
     assert quotes[0].source == "searchapi-google-flights"
     assert quotes[0].total_price == Decimal("89")
+
+
+def test_searchapi_429_raises_quota_error():
+    class DummyResponse:
+        status_code = 429
+        text = '{"error": "You have used all of the searches for the month."}'
+
+        @staticmethod
+        def json():
+            return {"error": "You have used all of the searches for the month."}
+
+    class DummyClient:
+        @staticmethod
+        def get(*args, **kwargs):
+            return DummyResponse()
+
+    client = SearchApiClient(SearchApiConfig())
+    task = SearchTask(
+        origin="YVR",
+        destination="LAX",
+        departure_date=date(2026, 7, 22),
+        return_date=date(2026, 7, 29),
+    )
+
+    try:
+        client.search_flights(DummyClient(), task)
+        assert False, "Expected SearchApiQuotaExceededError"
+    except SearchApiQuotaExceededError as exc:
+        assert "used all of the searches for the month" in str(exc)

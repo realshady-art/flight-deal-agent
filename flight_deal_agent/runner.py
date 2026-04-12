@@ -32,8 +32,13 @@ def run_once(
     db_path = Path(config.storage.sqlite_path)
     init_db(db_path)
 
-    airports = load_region_airports(regions_dir, config.target_region_id)
-    tasks = plan_tasks(config, airports)
+    destination_airports = load_region_airports(regions_dir, config.target_region_id)
+    origin_airports = (
+        load_region_airports(regions_dir, config.origin_region_id)
+        if config.origin_region_id
+        else config.origin_airports
+    )
+    tasks = plan_tasks(config, origin_airports, destination_airports)
     logger.info("[%s] planned %d tasks", run_id, len(tasks))
 
     try:

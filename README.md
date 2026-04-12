@@ -14,8 +14,9 @@
 
 **已完成（可在另一台机器上直接 clone验证）**
 
-- 后端流水线：`run-once` = 规划任务 → 采集（stub / Amadeus）→ SQLite 落库 → 策略筛选 → stdout 通知 → 运行日志。
+- 后端流水线：`run-once` = 规划任务 → 采集（stub / Amadeus / SearchApi）→ SQLite 落库 → 策略筛选 → stdout 通知 → 运行日志。
 - **Amadeus**：OAuth2 + Flight Inspiration（扫目的地）+ Flight Offers Search（补漏/复核思路在 `collector.py`）；免费层需自行注册密钥。
+- **SearchApi**：Google Flights 搜索已接入 `searchapi` provider，适合当前 MVP。
 - **配置**：YAML + `data/regions/*.yaml` 机场池；`python-dotenv` 自动加载根目录 `.env`。
 - **命令**：`run-once`、`serve`（FastAPI + APScheduler）、`check-config`、`verify-amadeus`（`--oauth-only` 可选）。
 - **HTTP API**：健康检查、deals/quotes/runs、手动触发、调度器启停、脱敏配置（见下文 API 表）。
@@ -38,6 +39,7 @@
 | CLI（run-once / serve / check-config / verify-amadeus） | 可用 |
 | 自动加载根目录 `.env`（python-dotenv） | 可用 |
 | Amadeus Self-Service 采集器 | 可用（需免费注册获取 key） |
+| SearchApi Google Flights 采集器 | 可用（需 SearchApi key） |
 | Stub 采集器（离线测试） | 可用 |
 | SQLite 落库 + 历史查询 | 可用 |
 | 策略：绝对阈值 + 历史中位数 + 通知冷却 | 可用 |
@@ -55,8 +57,8 @@
 
 | 优先级 | 事项 | 说明 |
 |--------|------|------|
-| P0 | 配置 Amadeus 生产/测试密钥 | 见下文「下一步：在新环境跑起来」；密钥只放 `.env`，勿提交仓库。 |
-| P1 | 根据配额调 `request_budget_per_run` 与 `scheduler.interval_hours` | 避免超额；可按航线分层轮询（代码里 orchestrator 仍可增强）。 |
+| P0 | 配置 SearchApi / Amadeus 密钥 | SearchApi 更适合当前 MVP；密钥只放 `.env`，勿提交仓库。 |
+| P1 | 根据配额调 `request_budget_per_run` 与调度间隔 | 避免超额；现已支持 `scheduler.interval_hours` / `interval_minutes`，但全量航线仍受预算限制。 |
 | P1 | 实现 Telegram或邮件通知 | 改 `notifier.py`，配置项可扩到 `config.yaml` 的 `alerts`。 |
 | P2 | Flight Offers **二次复核**策略细化 | Inspiration 为缓存价；文档已建议命中后再 Offers，可按 deal 阈值触发复核以减 API 次数。 |
 | P2 | 前端 | 对接现有 FastAPI（`/api/*`），或新增鉴权（Token / Cookie）。 |
@@ -79,7 +81,9 @@ pytest -v    # 确认测试通过
 **2. 配置（二选一或并存）**
 
 - **仅验证流水线、不调外网**：`cp config/config.example.yaml config/config.yaml`，保持 `collector.provider: stub`。
-- **真实询价**：`cp .env.example .env`，填入 Amadeus；`cp config/config.amadeus.example.yaml config/config.yaml`；改出发地、区域、阈值。
+- **真实询价（SearchApi）**：`cp .env.example .env`，填入 `SEARCHAPI_API_KEY`；`cp config/config.searchapi.example.yaml config/config.yaml`。
+- **真实询价（Amadeus）**：`cp .env.example .env`，填入 Amadeus；`cp config/config.amadeus.example.yaml config/config.yaml`；改出发地、区域、阈值。
+- **美国 + 加拿大 10 分钟监控模板**：`cp config/config.us_ca.amadeus.example.yaml config/config.yaml`，再按你的配额与阈值微调。
 
 **3. 验证 Amadeus（有密钥后）**
 
@@ -130,7 +134,17 @@ cp config/config.example.yaml config/config.yaml
 python -m flight_deal_agent run-once
 ```
 
-**接 Amadeus（免费 API，推荐下一步）**
+**接 SearchApi（当前更适合跑 MVP）**
+
+```bash
+cp .env.example .env
+# 在 https://www.searchapi.io 注册 → Dashboard → API Keys → 把 key 填入 .env
+cp config/config.searchapi.example.yaml config/config.yaml
+python -m flight_deal_agent check-config
+python -m flight_deal_agent run-once
+```
+
+**接 Amadeus（备用）**
 
 ```bash
 cp .env.example .env
@@ -161,7 +175,7 @@ python -m flight_deal_agent run-once
 
 ```bash
 python -m flight_deal_agent serve
-# 默认 http://127.0.0.1:8000，每小时自动扫一次
+# 默认 http://127.0.0.1:8000，按 config.yaml 里的 interval 自动扫
 # --no-scheduler 仅启动 API 不自动扫
 ```
 
@@ -198,7 +212,7 @@ flight-deal-agent/
 │   ├── settings.py              # 配置加载
 │   ├── models.py                # 数据模型（Pydantic）
 │   ├── orchestrator.py          # 任务规划 + 日期采样
-│   ├── collector.py             # 采集（stub / Amadeus）
+│   ├── collector.py             # 采集（stub / Amadeus / SearchApi）
 │   ├── storage.py               # SQLite 存储 + 历史统计
 │   ├── analyst.py               # 特价判断规则
 │   ├── notifier.py              # 通知（stdout / 预留）
@@ -224,6 +238,22 @@ flight-deal-agent/
 | GET | `/api/scheduler/status` | 调度器状态 |
 | POST | `/api/scheduler/start` | 启动调度 |
 | POST | `/api/scheduler/stop` | 停止调度 |
+
+---
+
+## 美国 + 加拿大监控说明
+
+如果你的目标是“每 10 分钟扫一次美国 + 加拿大主要航线，只在明显便宜时提醒”，当前仓库已经能直接配置到这一层：
+
+- `origin_region_id: "us_ca_major"` + `target_region_id: "us_ca_major"`：把出发地和目的地都限制在美国/加拿大主要机场池
+- `scheduler.interval_minutes: 10`：10 分钟级调度
+- `thresholds.below_median_pct`：只在明显低于历史中位价时提醒
+
+但有一个边界要明确：
+
+- 当前 orchestrator 仍然受 `collector.request_budget_per_run` 限制
+- 所以它是“按预算轮询主要航线”，不是“无限制穷举北美所有机场对”
+- 这层是故意保留的，不然免费额度会很快耗尽
 
 ---
 

@@ -4,6 +4,7 @@ Collector: fetch flight quotes from external APIs.
 Supported providers:
   - stub       : returns nothing (for local testing)
   - amadeus    : Amadeus Self-Service via httpx (free tier)
+  - searchapi  : SearchApi Google Flights via httpx
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import httpx
 
 from flight_deal_agent.models import QuoteSnapshot
 from flight_deal_agent.orchestrator import SearchTask
-from flight_deal_agent.settings import AmadeusConfig, AppConfig
+from flight_deal_agent.settings import AmadeusConfig, AppConfig, SearchApiConfig
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,54 @@ class AmadeusClient:
         return []
 
 
+class SearchApiClient:
+    """Thin wrapper around SearchApi Google Flights."""
+
+    def __init__(self, config: SearchApiConfig):
+        self._cfg = config
+
+    def search_flights(
+        self,
+        client: httpx.Client,
+        task: SearchTask,
+        *,
+        currency: str = "USD",
+        max_price: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        params: Dict[str, Any] = {
+            "engine": "google_flights",
+            "flight_type": "round_trip" if task.return_date else "one_way",
+            "departure_id": task.origin,
+            "arrival_id": task.destination,
+            "outbound_date": task.departure_date.isoformat(),
+            "currency": currency,
+            "sort_by": "price",
+            "show_cheapest_flights": "true",
+            "gl": self._cfg.gl,
+            "hl": self._cfg.hl,
+        }
+        if task.return_date:
+            params["return_date"] = task.return_date.isoformat()
+        if max_price is not None:
+            params["max_price"] = max_price
+        resp = client.get(
+            f"{self._cfg.base_url}/api/v1/search",
+            params=params,
+            headers={"Authorization": f"Bearer {self._cfg.api_key}"},
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        logger.warning(
+            "SearchApi search %s->%s %s → HTTP %s: %s",
+            task.origin,
+            task.destination,
+            task.departure_date.isoformat(),
+            resp.status_code,
+            resp.text[:300],
+        )
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # Response parsing helpers
 # ---------------------------------------------------------------------------
@@ -194,6 +243,43 @@ def _parse_offer(offer: Dict[str, Any], run_id: str) -> Optional[QuoteSnapshot]:
         return None
 
 
+def _parse_searchapi_flight(
+    item: Dict[str, Any],
+    task: SearchTask,
+    run_id: str,
+) -> Optional[QuoteSnapshot]:
+    """Parse one itinerary from SearchApi Google Flights results."""
+    try:
+        flights = item["flights"]
+        first_leg = flights[0]
+        last_leg = flights[-1]
+
+        carriers: List[str] = []
+        for leg in flights:
+            flight_number = str(leg.get("flight_number", "")).strip()
+            code = flight_number.split()[0] if flight_number else ""
+            if code and code not in carriers:
+                carriers.append(code)
+
+        return QuoteSnapshot(
+            search_ts=datetime.now(tz=timezone.utc),
+            run_id=run_id,
+            origin=first_leg["departure_airport"]["id"],
+            destination=last_leg["arrival_airport"]["id"],
+            departure_date=task.departure_date,
+            return_date=task.return_date,
+            trip_type="round_trip" if task.return_date else "one_way",
+            currency="USD",
+            total_price=Decimal(str(item["price"])),
+            source="searchapi-google-flights",
+            stops=max(len(flights) - 1, 0),
+            carrier_codes=carriers or None,
+        )
+    except Exception:
+        logger.debug("Failed to parse SearchApi flight: %s", item, exc_info=True)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Public collect functions
 # ---------------------------------------------------------------------------
@@ -226,9 +312,11 @@ def collect_quotes_amadeus(
     # -- which destinations are in our region? --
     dest_set = {t.destination for t in tasks}
 
+    origin_set = sorted({t.origin for t in tasks})
+
     with httpx.Client(timeout=30) as client:
         # Stage 1: Inspiration (very cheap in API calls)
-        for origin in config.origin_airports:
+        for origin in origin_set:
             if api_calls >= budget:
                 break
             raw = amadeus.search_inspiration(
@@ -269,6 +357,41 @@ def collect_quotes_amadeus(
     return quotes, api_calls
 
 
+def collect_quotes_searchapi(
+    config: AppConfig,
+    tasks: List[SearchTask],
+    run_id: str,
+) -> Tuple[List[QuoteSnapshot], int]:
+    """Collect the cheapest Google Flights quote per task via SearchApi."""
+    searchapi = SearchApiClient(config.searchapi)
+    quotes: List[QuoteSnapshot] = []
+    api_calls = 0
+
+    with httpx.Client(timeout=30) as client:
+        for task in tasks:
+            body = searchapi.search_flights(
+                client,
+                task,
+                currency=config.currency,
+                max_price=int(config.thresholds.max_total_price) if config.thresholds.max_total_price else None,
+            )
+            api_calls += 1
+            candidates = body.get("best_flights", []) + body.get("other_flights", [])
+            if not candidates:
+                continue
+            candidates = sorted(
+                candidates,
+                key=lambda item: Decimal(str(item.get("price", "999999999"))),
+            )
+            quote = _parse_searchapi_flight(candidates[0], task, run_id)
+            if quote:
+                quote.currency = config.currency
+                quotes.append(quote)
+
+    logger.info("SearchApi collection done: api_calls=%d quotes=%d", api_calls, len(quotes))
+    return quotes, api_calls
+
+
 def collect_quotes(
     config: AppConfig,
     tasks: List[SearchTask],
@@ -279,4 +402,6 @@ def collect_quotes(
         return collect_quotes_stub(config, tasks, run_id)
     if provider == "amadeus":
         return collect_quotes_amadeus(config, tasks, run_id)
+    if provider == "searchapi":
+        return collect_quotes_searchapi(config, tasks, run_id)
     raise NotImplementedError(f"collector.provider={provider!r} not implemented")

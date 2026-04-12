@@ -10,6 +10,8 @@ app:
 
 origin_airports:
   - PVG
+# 若要扫美国+加拿大内的主要航线，可改成:
+# origin_region_id: "us_ca_major"
 
 target_region_id: "example_europe"
 
@@ -32,6 +34,10 @@ collector:
 amadeus:
   test_mode: true   # true=测试环境(缓存数据); false=生产(真实票价,仍有免费额度)
 
+searchapi:
+  gl: "us"
+  hl: "en"
+
 storage:
   sqlite_path: "data/state/quotes.db"
 
@@ -47,6 +53,7 @@ thresholds:
 
 scheduler:
   interval_hours: 1
+  # interval_minutes: 10
 
 api:
   host: "127.0.0.1"

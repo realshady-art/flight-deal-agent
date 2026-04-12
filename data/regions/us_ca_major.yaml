@@ -1,0 +1,41 @@
+id: "us_ca_major"
+label: "United States + Canada (major airports)"
+airports:
+  - ATL
+  - AUS
+  - BOS
+  - BWI
+  - CLT
+  - DCA
+  - DEN
+  - DFW
+  - DTW
+  - EWR
+  - FLL
+  - IAD
+  - IAH
+  - JFK
+  - LAS
+  - LAX
+  - LGA
+  - MCO
+  - MIA
+  - MSP
+  - ORD
+  - PDX
+  - PHL
+  - PHX
+  - SAN
+  - SEA
+  - SFO
+  - SJC
+  - SNA
+  - YEG
+  - YHZ
+  - YOW
+  - YQB
+  - YTZ
+  - YUL
+  - YVR
+  - YYC
+  - YYZ

@@ -21,11 +21,19 @@ class FlightDealScheduler:
         config_path: Path,
         regions_dir: Path,
         interval_hours: int = 1,
+        interval_minutes: Optional[int] = None,
     ):
         self._config_path = config_path
         self._regions_dir = regions_dir
-        self._interval = interval_hours
+        self._interval_hours = interval_hours
+        self._interval_minutes = interval_minutes
         self._scheduler: Optional[BackgroundScheduler] = None
+
+    @property
+    def interval_label(self) -> str:
+        if self._interval_minutes is not None:
+            return f"{self._interval_minutes}m"
+        return f"{self._interval_hours}h"
 
     def _run_job(self) -> None:
         logger.info("Scheduler triggered run-once")
@@ -45,13 +53,17 @@ class FlightDealScheduler:
         self._scheduler = BackgroundScheduler()
         self._scheduler.add_job(
             self._run_job,
-            trigger=IntervalTrigger(hours=self._interval),
+            trigger=(
+                IntervalTrigger(minutes=self._interval_minutes)
+                if self._interval_minutes is not None
+                else IntervalTrigger(hours=self._interval_hours)
+            ),
             id=JOB_ID,
-            name="Hourly flight deal scan",
+            name="Flight deal scan",
             replace_existing=True,
         )
         self._scheduler.start()
-        logger.info("Scheduler started (interval=%dh)", self._interval)
+        logger.info("Scheduler started (interval=%s)", self.interval_label)
 
     def stop(self) -> None:
         if self._scheduler and self._scheduler.running:

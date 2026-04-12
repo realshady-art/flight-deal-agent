@@ -4,6 +4,8 @@ app:
 
 origin_airports:
   - PVG
+# 或者改成:
+# origin_region_id: "us_ca_major"
 
 target_region_id: "example_europe"
 
@@ -20,11 +22,15 @@ trip:
 currency: "CNY"
 
 collector:
-  provider: "stub"  # stub | amadeus
+  provider: "stub"  # stub | amadeus | searchapi
   request_budget_per_run: 30
 
 amadeus:
   test_mode: true
+
+searchapi:
+  gl: "us"
+  hl: "en"
 
 storage:
   sqlite_path: "data/state/quotes.db"
@@ -41,6 +47,7 @@ thresholds:
 
 scheduler:
   interval_hours: 1
+  # interval_minutes: 10
 
 api:
   host: "127.0.0.1"

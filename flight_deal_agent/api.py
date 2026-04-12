@@ -117,4 +117,6 @@ def get_config() -> Dict[str, Any]:
     if "amadeus" in data:
         data["amadeus"].pop("client_id", None)
         data["amadeus"].pop("client_secret", None)
+    if "searchapi" in data:
+        data["searchapi"].pop("api_key", None)
     return data

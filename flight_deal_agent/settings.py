@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DateWindow(BaseModel):
@@ -45,6 +45,16 @@ class AmadeusConfig(BaseModel):
         return "https://api.amadeus.com"
 
 
+class SearchApiConfig(BaseModel):
+    base_url: str = "https://www.searchapi.io"
+    gl: str = "us"
+    hl: str = "en"
+
+    @property
+    def api_key(self) -> str:
+        return os.environ.get("SEARCHAPI_API_KEY", "")
+
+
 class StorageConfig(BaseModel):
     sqlite_path: str = "data/state/quotes.db"
 
@@ -62,7 +72,14 @@ class ThresholdsConfig(BaseModel):
 
 
 class SchedulerConfig(BaseModel):
-    interval_hours: int = 1
+    interval_hours: int = Field(default=1, gt=0)
+    interval_minutes: Optional[int] = Field(default=None, gt=0)
+
+    @property
+    def label(self) -> str:
+        if self.interval_minutes is not None:
+            return f"{self.interval_minutes}m"
+        return f"{self.interval_hours}h"
 
 
 class ApiConfig(BaseModel):
@@ -77,17 +94,25 @@ class AppMeta(BaseModel):
 
 class AppConfig(BaseModel):
     app: AppMeta = Field(default_factory=AppMeta)
-    origin_airports: List[str]
+    origin_airports: List[str] = Field(default_factory=list)
+    origin_region_id: Optional[str] = None
     target_region_id: str
     trip: TripConfig = Field(default_factory=TripConfig)
     currency: str = "CNY"
     collector: CollectorConfig = Field(default_factory=CollectorConfig)
     amadeus: AmadeusConfig = Field(default_factory=AmadeusConfig)
+    searchapi: SearchApiConfig = Field(default_factory=SearchApiConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
     alerts: AlertsConfig = Field(default_factory=AlertsConfig)
     thresholds: ThresholdsConfig = Field(default_factory=ThresholdsConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
+
+    @model_validator(mode="after")
+    def validate_origins(self) -> "AppConfig":
+        if not self.origin_airports and not self.origin_region_id:
+            raise ValueError("Need either origin_airports or origin_region_id")
+        return self
 
 
 def load_app_config(path: Path) -> AppConfig:

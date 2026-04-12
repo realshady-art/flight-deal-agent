@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
 from flight_deal_agent.settings import AppConfig
@@ -35,8 +36,35 @@ def _return_dates_for(dep: date, config: AppConfig) -> List[date]:
     return [dep + timedelta(days=n) for n in samples if mn <= n <= mx]
 
 
+def _scheduler_interval_seconds(config: AppConfig) -> int:
+    if config.scheduler.interval_minutes is not None:
+        return config.scheduler.interval_minutes * 60
+    return config.scheduler.interval_hours * 3600
+
+
+def _apply_budget_window(
+    tasks: List[SearchTask],
+    config: AppConfig,
+    *,
+    now: Optional[datetime] = None,
+) -> List[SearchTask]:
+    budget = config.collector.request_budget_per_run
+    if len(tasks) <= budget:
+        return tasks
+
+    chunk_count = math.ceil(len(tasks) / budget)
+    current = now or datetime.now(tz=timezone.utc)
+    slot = int(current.timestamp() // _scheduler_interval_seconds(config))
+    start = (slot % chunk_count) * budget
+    window = tasks[start:start + budget]
+    if len(window) < budget:
+        window.extend(tasks[:budget - len(window)])
+    return window
+
+
 def plan_tasks(
     config: AppConfig,
+    origin_airports: List[str],
     destination_airports: List[str],
 ) -> List[SearchTask]:
     """
@@ -44,11 +72,10 @@ def plan_tasks(
     Truncated by request_budget_per_run to prevent quota exhaustion.
     """
     departures = _sample_departure_dates(config)
-    budget = config.collector.request_budget_per_run
     round_trip = config.trip.type == "round_trip"
 
     tasks: List[SearchTask] = []
-    for origin in config.origin_airports:
+    for origin in origin_airports:
         for dest in destination_airports:
             if origin == dest:
                 continue
@@ -58,6 +85,4 @@ def plan_tasks(
                         tasks.append(SearchTask(origin, dest, dep, ret))
                 else:
                     tasks.append(SearchTask(origin, dest, dep, None))
-                if len(tasks) >= budget:
-                    return tasks
-    return tasks
+    return _apply_budget_window(tasks, config)

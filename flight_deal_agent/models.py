@@ -20,7 +20,10 @@ class QuoteSnapshot(BaseModel):
     trip_type: TripType = "round_trip"
     currency: str
     total_price: Decimal
-    source: str = Field(..., description="stub / amadeus-inspiration / amadeus-offers")
+    source: str = Field(
+        ...,
+        description="stub / amadeus-inspiration / amadeus-offers / searchapi-google-flights",
+    )
     stops: Optional[int] = None
     carrier_codes: Optional[List[str]] = None
     deep_link: Optional[str] = None

@@ -12,6 +12,7 @@ def test_load_config(tmp_config: Path):
     assert cfg.currency == "USD"
     assert cfg.collector.provider == "stub"
     assert cfg.thresholds.max_total_price == 5000
+    assert cfg.scheduler.interval_minutes is None
 
 
 def test_load_region(tmp_regions: Path):
@@ -22,3 +23,26 @@ def test_load_region(tmp_regions: Path):
 def test_missing_region(tmp_regions: Path):
     with pytest.raises(FileNotFoundError):
         load_region_airports(tmp_regions, "nonexistent")
+
+
+def test_load_config_with_origin_region_and_minutes(tmp_path: Path):
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(
+        """
+app:
+  name: test
+  timezone: UTC
+origin_region_id: test_region
+target_region_id: test_region
+collector:
+  provider: stub
+scheduler:
+  interval_minutes: 10
+""".strip(),
+        encoding="utf-8",
+    )
+    cfg = load_app_config(cfg_path)
+    assert cfg.origin_airports == []
+    assert cfg.origin_region_id == "test_region"
+    assert cfg.scheduler.interval_minutes == 10
+    assert cfg.scheduler.label == "10m"

@@ -1,0 +1,45 @@
+app:
+  name: "flight-deal-agent"
+  timezone: "America/Vancouver"
+
+origin_region_id: "us_ca_major"
+target_region_id: "us_ca_major"
+
+trip:
+  type: "round_trip"
+  date_window:
+    min_days_ahead: 7
+    max_days_ahead: 60
+    min_trip_nights: 2
+    max_trip_nights: 10
+    sample_every_n_days: 3
+    trip_night_samples: [2, 3, 4, 5, 7]
+
+currency: "USD"
+
+collector:
+  provider: "amadeus"
+  request_budget_per_run: 120
+
+amadeus:
+  test_mode: false
+
+storage:
+  sqlite_path: "data/state/quotes.db"
+
+alerts:
+  channel: "stdout"
+  digest_interval_hours: 6
+  cooldown_hours: 24
+  renotify_price_drop_pct: 8
+
+thresholds:
+  max_total_price: null
+  below_median_pct: 30
+
+scheduler:
+  interval_minutes: 10
+
+api:
+  host: "127.0.0.1"
+  port: 8000

@@ -43,6 +43,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         args.config,
         args.regions_dir,
         interval_hours=config.scheduler.interval_hours,
+        interval_minutes=config.scheduler.interval_minutes,
     )
     configure(args.config, args.regions_dir, sched)
 
@@ -50,7 +51,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         sched.start()
         print(
             f"[flight-deal-agent] Scheduler started "
-            f"(interval={config.scheduler.interval_hours}h)"
+            f"(interval={config.scheduler.label})"
         )
 
     print(f"[flight-deal-agent] API serving on {config.api.host}:{config.api.port}")
@@ -63,12 +64,19 @@ def cmd_check_config(args: argparse.Namespace) -> None:
         config = load_app_config(args.config)
         airports = load_region_airports(args.regions_dir, config.target_region_id)
         print(f"Config OK: {args.config}")
-        print(f"  origins     : {config.origin_airports}")
+        if config.origin_region_id:
+            print(f"  origins     : region={config.origin_region_id}")
+        else:
+            print(f"  origins     : {config.origin_airports}")
         print(f"  region      : {config.target_region_id} ({len(airports)} airports)")
         print(f"  provider    : {config.collector.provider}")
-        print(f"  amadeus env : test_mode={config.amadeus.test_mode}")
+        if config.collector.provider == "amadeus":
+            print(f"  amadeus env : test_mode={config.amadeus.test_mode}")
+        if config.collector.provider == "searchapi":
+            print(f"  searchapi   : gl={config.searchapi.gl} hl={config.searchapi.hl}")
         print(f"  currency    : {config.currency}")
         print(f"  budget/run  : {config.collector.request_budget_per_run}")
+        print(f"  scheduler   : {config.scheduler.label}")
         print(f"  db          : {config.storage.sqlite_path}")
         print(f"  channel     : {config.alerts.channel}")
         if config.collector.provider == "amadeus":
@@ -83,6 +91,16 @@ def cmd_check_config(args: argparse.Namespace) -> None:
             else:
                 preview = f"{cid[:6]}…" if len(cid) > 6 else cid
                 print(f"  amadeus key : client_id 已设置（{preview}）")
+        if config.collector.provider == "searchapi":
+            key = config.searchapi.api_key
+            if not key:
+                print(
+                    "  WARNING     : provider=searchapi 但 .env 中缺少 SEARCHAPI_API_KEY",
+                    file=sys.stderr,
+                )
+            else:
+                preview = f"{key[:6]}…" if len(key) > 6 else key
+                print(f"  searchapi key: api_key 已设置（{preview}）")
     except Exception as exc:
         print(f"Config ERROR: {exc}", file=sys.stderr)
         sys.exit(1)

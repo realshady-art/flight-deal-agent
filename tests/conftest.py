@@ -38,7 +38,11 @@ def tmp_config(tmp_path: Path) -> Path:
             "cooldown_hours": 24,
             "renotify_price_drop_pct": 8,
         },
-        "thresholds": {"max_total_price": 5000, "below_median_pct": 30},
+        "thresholds": {
+            "max_total_price": 5000,
+            "below_median_pct": 30,
+            "lowest_n_per_run": None,
+        },
         "scheduler": {"interval_hours": 1, "interval_minutes": None},
         "api": {"host": "127.0.0.1", "port": 9999},
     }

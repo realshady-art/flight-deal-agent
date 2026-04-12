@@ -72,11 +72,44 @@ def _check_cooldown(
     return actual_drop >= drop_needed
 
 
+def _evaluate_lowest_n(
+    config: AppConfig,
+    quotes: List[QuoteSnapshot],
+) -> List[DealCandidate]:
+    limit = config.thresholds.lowest_n_per_run
+    if not limit:
+        return []
+
+    ranked = sorted(
+        quotes,
+        key=lambda q: (
+            q.total_price,
+            q.departure_date,
+            q.return_date or q.departure_date,
+            q.origin,
+            q.destination,
+        ),
+    )[:limit]
+
+    deals = [
+        DealCandidate(
+            quote=q,
+            reason=f"本轮最低价 Top {idx}/{len(ranked)}",
+        )
+        for idx, q in enumerate(ranked, start=1)
+    ]
+    logger.info("Analyst: %d quotes → %d cheapest candidates", len(quotes), len(deals))
+    return deals
+
+
 def evaluate_deals(
     config: AppConfig,
     quotes: List[QuoteSnapshot],
     db_path: Path,
 ) -> List[DealCandidate]:
+    if config.thresholds.lowest_n_per_run:
+        return _evaluate_lowest_n(config, quotes)
+
     deals: List[DealCandidate] = []
     for q in quotes:
         # 1. absolute cap

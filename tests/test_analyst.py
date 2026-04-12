@@ -67,3 +67,25 @@ def test_not_cheap_enough_relative(tmp_config: Path, tmp_db: Path):
     slightly_cheaper = _make_quote("900")
     deals = evaluate_deals(cfg, [slightly_cheaper], tmp_db)
     assert len(deals) == 0
+
+
+def test_lowest_n_per_run_selects_cheapest(tmp_config: Path, tmp_db: Path):
+    cfg = load_app_config(tmp_config)
+    cfg.thresholds.max_total_price = None
+    cfg.thresholds.below_median_pct = None
+    cfg.thresholds.lowest_n_per_run = 5
+    init_db(tmp_db)
+
+    quotes = [
+        _make_quote("420", dest="SFO"),
+        _make_quote("120", dest="LAX"),
+        _make_quote("310", dest="SEA"),
+        _make_quote("220", dest="SAN"),
+        _make_quote("180", dest="LAS"),
+        _make_quote("500", dest="JFK"),
+    ]
+
+    deals = evaluate_deals(cfg, quotes, tmp_db)
+    assert len(deals) == 5
+    assert [d.quote.destination for d in deals] == ["LAX", "LAS", "SAN", "SEA", "SFO"]
+    assert deals[0].reason == "本轮最低价 Top 1/5"

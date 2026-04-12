@@ -69,6 +69,7 @@ class AlertsConfig(BaseModel):
 class ThresholdsConfig(BaseModel):
     max_total_price: Optional[float] = None
     below_median_pct: Optional[float] = None
+    lowest_n_per_run: Optional[int] = Field(default=None, gt=0)
 
 
 class SchedulerConfig(BaseModel):

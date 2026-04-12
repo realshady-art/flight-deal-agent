@@ -35,9 +35,12 @@ def _format_deal(d: DealCandidate) -> str:
 
 def _notify_stdout(deals: List[DealCandidate]) -> None:
     if not deals:
-        print("[flight-deal-agent] 本轮无候选 deal。")
+        print("[flight-deal-agent] 本轮无结果。")
         return
-    print(f"[flight-deal-agent] 发现 {len(deals)} 条候选 deal：")
+    if all(d.reason.startswith("本轮最低价 Top ") for d in deals):
+        print(f"[flight-deal-agent] 当前最低的 {len(deals)} 条报价：")
+    else:
+        print(f"[flight-deal-agent] 发现 {len(deals)} 条候选 deal：")
     for d in deals:
         print(_format_deal(d))
 

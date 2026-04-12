@@ -12,6 +12,7 @@ def test_load_config(tmp_config: Path):
     assert cfg.currency == "USD"
     assert cfg.collector.provider == "stub"
     assert cfg.thresholds.max_total_price == 5000
+    assert cfg.thresholds.lowest_n_per_run is None
     assert cfg.scheduler.interval_minutes is None
 
 

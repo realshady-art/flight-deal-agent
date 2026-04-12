@@ -37,8 +37,9 @@ alerts:
   renotify_price_drop_pct: 8
 
 thresholds:
-  max_total_price: 100
+  max_total_price: null
   below_median_pct: null
+  lowest_n_per_run: 5
 
 scheduler:
   interval_minutes: 10

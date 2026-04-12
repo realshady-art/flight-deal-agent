@@ -1,0 +1,28 @@
+id: "na_us_ca_major"
+label: "North America (US + Canada major airports)"
+airports:
+  - YYC
+  - YYJ
+  - YEG
+  - YUL
+  - YOW
+  - YWG
+  - YYZ
+  - ATL
+  - BOS
+  - DEN
+  - DFW
+  - EWR
+  - IAD
+  - IAH
+  - JFK
+  - LAS
+  - LAX
+  - MCO
+  - ORD
+  - PDX
+  - PHX
+  - SAN
+  - SEA
+  - SFO
+  - SJC

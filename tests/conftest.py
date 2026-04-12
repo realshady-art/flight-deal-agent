@@ -39,7 +39,7 @@ def tmp_config(tmp_path: Path) -> Path:
             "renotify_price_drop_pct": 8,
         },
         "thresholds": {"max_total_price": 5000, "below_median_pct": 30},
-        "scheduler": {"interval_hours": 1},
+        "scheduler": {"interval_hours": 1, "interval_minutes": None},
         "api": {"host": "127.0.0.1", "port": 9999},
     }
     p = tmp_path / "config.yaml"

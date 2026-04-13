@@ -79,7 +79,7 @@ async function refreshDashboard() {
   document.getElementById("notes").value = state.config.notes || "";
 
   renderRuns(bootstrap.recent_runs || []);
-  setText("setupStatus", "GUI now drives only the local Codex web-search flow on this machine. No API key is required.");
+  setText("setupStatus", "GUI now drives only the server-side Codex web-search flow. No paid flight API key is required.");
 }
 
 async function saveSetup() {
@@ -125,7 +125,7 @@ document.getElementById("saveSetupBtn").addEventListener("click", async (event) 
   }
 });
 
-document.getElementById("runNowBtn").addEventListener("click", () => runAction("/api/local/run", "Running immediate search on this machine"));
+document.getElementById("runNowBtn").addEventListener("click", () => runAction("/api/local/run", "Running immediate search on server runtime"));
 document.getElementById("startSchedulerBtn").addEventListener("click", () => runAction("/api/local/scheduler/start", "Starting hourly scheduler"));
 document.getElementById("stopSchedulerBtn").addEventListener("click", () => runAction("/api/local/scheduler/stop", "Stopping hourly scheduler"));
 

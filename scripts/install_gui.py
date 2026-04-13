@@ -79,7 +79,9 @@ def main() -> int:
     print("")
     print("[install] GUI runtime is ready.")
     print(f"[install] Next: {python_bin} scripts/launch_gui.py")
-    print("[install] Then open http://127.0.0.1:8000 and finish setup in the GUI.")
+    print("[install] Local-only mode: python3 scripts/launch_gui.py")
+    print("[install] Shared server mode: python3 scripts/launch_gui.py --public")
+    print("[install] Then open http://127.0.0.1:8000 (or the server IP) and finish setup in the GUI.")
     return 0
 
 

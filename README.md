@@ -131,6 +131,24 @@ GUI 当前支持：
 - GUI 会把配置写回 `config/local_web_search.yaml`
 - 当前这条 GUI **不依赖付费航班 API key**，默认走本地 `codex exec + web search`
 
+如果你要的是“任何人打开同一个界面，但请求都固定跑在某一台服务器 / agent 主机的本地 Codex”，不要让每个人各自本地启动 GUI。正确做法是：
+
+```bash
+python3 scripts/install_gui.py
+python3 scripts/launch_gui.py --public --host 0.0.0.0 --port 8000
+```
+
+然后其他人访问：
+
+```text
+http://<这台服务器或 agent 主机的 IP>:8000
+```
+
+这时：
+- `Run now` 调用的是**启动 GUI 的那台主机本地** `codex exec`
+- hourly scheduler 也跑在**这台主机**
+- 客户端机器只是在访问网页，不会执行本地查询
+
 **6. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**
 
 仓库里带了一套可复用的 Python 入口：
@@ -244,6 +262,12 @@ python3 scripts/launch_gui.py
 ```
 
 启动后浏览器会自动尝试打开 `http://127.0.0.1:8000`。如果没有自动打开，就手动访问这个地址。
+
+如果你要把 GUI 作为一台主机上的**共享控制面板**来跑，让别的电脑打开网页但实际查询都固定在这台主机执行，用：
+
+```bash
+python3 scripts/launch_gui.py --public --host 0.0.0.0 --port 8000
+```
 
 ### 5. 跑测试
 

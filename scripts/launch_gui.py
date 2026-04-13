@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
 import sys
@@ -27,7 +28,10 @@ def ensure_venv_exec() -> None:
             raise SystemExit(
                 "Missing .venv_gui runtime. Run `python3 scripts/install_gui.py` first."
             )
-        os.execv(str(target), [str(target), str(Path(__file__).resolve())])
+        os.execv(
+            str(target),
+            [str(target), str(Path(__file__).resolve()), *sys.argv[1:]],
+        )
 
 
 def open_browser_later(url: str, delay: float = 2.0) -> None:
@@ -56,7 +60,18 @@ def open_browser_later(url: str, delay: float = 2.0) -> None:
 
 def main() -> int:
     ensure_venv_exec()
-    url = "http://127.0.0.1:8000"
+    parser = argparse.ArgumentParser(description="Launch the flight-deal-agent control room")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", default=8000, type=int)
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help="Bind on 0.0.0.0 so other machines can use this server-side Codex runtime.",
+    )
+    args = parser.parse_args()
+    host = "0.0.0.0" if args.public else args.host
+    url_host = "127.0.0.1" if host == "0.0.0.0" else host
+    url = f"http://{url_host}:{args.port}"
     open_browser_later(url)
     cmd = [
         sys.executable,
@@ -64,6 +79,10 @@ def main() -> int:
         "flight_deal_agent",
         "serve",
         "--no-scheduler",
+        "--host",
+        host,
+        "--port",
+        str(args.port),
     ]
     return subprocess.call(cmd, cwd=ROOT)
 

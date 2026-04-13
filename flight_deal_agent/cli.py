@@ -54,11 +54,13 @@ def cmd_serve(args: argparse.Namespace) -> None:
             f"(interval={config.scheduler.label})"
         )
 
+    host = args.host or config.api.host
+    port = args.port or config.api.port
     print(
         f"[flight-deal-agent] Control room serving on "
-        f"http://{config.api.host}:{config.api.port}"
+        f"http://{host}:{port}"
     )
-    uvicorn.run(app, host=config.api.host, port=config.api.port, log_level="info")
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 def cmd_check_config(args: argparse.Namespace) -> None:
@@ -143,6 +145,8 @@ def main() -> None:
 
     serve_p = sub.add_parser("serve", parents=[shared], help="启动 API + 调度器")
     serve_p.add_argument("--no-scheduler", action="store_true", help="仅启动 API，不启动定时调度")
+    serve_p.add_argument("--host", default=None, help="覆盖监听 host，例如 0.0.0.0")
+    serve_p.add_argument("--port", type=int, default=None, help="覆盖监听 port")
 
     sub.add_parser("check-config", parents=[shared], help="校验配置")
 

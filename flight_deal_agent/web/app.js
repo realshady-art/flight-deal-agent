@@ -99,7 +99,7 @@ function updateOverview(bootstrap, scheduler) {
       ? bootstrap.codex.path
       : `codex unavailable: ${bootstrap.codex.error}`,
   );
-  setText("originValue", cfg.origin_airport);
+  setText("originValue", (cfg.origin_airports || []).join(", "));
   setText("scopeValue", cfg.destination_scope);
   setText("topNValue", `${cfg.top_n} routes`);
   setText("intervalValue", `${cfg.interval_hours} hour(s)`);

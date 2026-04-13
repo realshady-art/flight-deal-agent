@@ -75,7 +75,7 @@ def test_gui_bootstrap(client: TestClient):
     resp = client.get("/api/gui/bootstrap")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["config"]["origin_airport"] == "YVR"
+    assert body["config"]["origin_airports"] == ["YVR", "YXX"]
     assert body["paths"]["config"].endswith("local_web_search.yaml")
     assert "host" in body["codex"]
     assert "runner" in body["paths"]
@@ -85,7 +85,7 @@ def test_setup_writes_local_search_config(client: TestClient, tmp_config: Path):
     resp = client.post(
         "/api/setup",
         json={
-            "origin_airport": "SEA",
+            "origin_airports": ["SEA", "YXX"],
             "destination_scope": "美国西海岸",
             "top_n": 3,
             "interval_hours": 2,
@@ -98,7 +98,7 @@ def test_setup_writes_local_search_config(client: TestClient, tmp_config: Path):
     config_path = tmp_config.parent / "config" / "local_web_search.yaml"
     assert config_path.exists()
     text = config_path.read_text(encoding="utf-8")
-    assert "origin_airport: SEA" in text
+    assert "- SEA" in text
     assert "destination_scope: 美国西海岸" in text
 
 
@@ -120,7 +120,7 @@ def test_read_only_dashboard_blocks_mutations(
             resp = client.post(
                 path,
                 json={
-                    "origin_airport": "SEA",
+                    "origin_airports": ["SEA", "YXX"],
                     "destination_scope": "美国西海岸",
                     "top_n": 3,
                     "interval_hours": 2,

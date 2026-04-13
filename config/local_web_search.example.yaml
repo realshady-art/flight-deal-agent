@@ -1,4 +1,6 @@
-origin_airport: "YVR"
+origin_airports:
+  - "YVR"
+  - "YXX"
 destination_scope: "美国/加拿大"
 top_n: 10
 interval_hours: 1

@@ -78,9 +78,19 @@ def normalize_local_search_config() -> None:
     raw = {}
     if LOCAL_SEARCH_CONFIG_PATH.exists():
         raw = yaml.safe_load(LOCAL_SEARCH_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    origin_airports = raw.get("origin_airports")
+    if not isinstance(origin_airports, list):
+        legacy_origin = raw.get("origin_airport")
+        origin_airports = [legacy_origin] if legacy_origin else ["YVR"]
+    normalized_origins: list[str] = []
+    for airport in [*(origin_airports or []), "YVR", "YXX"]:
+        airport_code = str(airport).strip().upper()
+        if airport_code and airport_code not in normalized_origins:
+            normalized_origins.append(airport_code)
+    raw["origin_airports"] = normalized_origins
+    raw.pop("origin_airport", None)
     raw["top_n"] = 10
     raw["interval_hours"] = 1
-    raw.setdefault("origin_airport", "YVR")
     raw.setdefault("destination_scope", "美国/加拿大")
     raw.setdefault("notes", "只用 web search，不用付费 API，不用浏览器自动化。")
     raw.setdefault("model", "gpt-5.4")

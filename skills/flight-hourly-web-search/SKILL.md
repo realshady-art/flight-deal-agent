@@ -18,7 +18,7 @@ Use this skill only for the local flight monitor workflow.
 ## Search goal
 
 Given:
-- one `origin_airport`
+- one or more `origin_airports`
 - one `destination_scope`
 - one `top_n`
 

@@ -1,7 +1,7 @@
 Use the installed skill `flight-hourly-web-search`.
 
 Current run inputs:
-- `origin_airport`: `{origin_airport}`
+- `origin_airports`: `{origin_airports}`
 - `destination_scope`: `{destination_scope}`
 - `top_n`: `{top_n}`
 

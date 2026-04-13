@@ -20,7 +20,9 @@ def test_run_local_web_search_extracts_structured_findings(
     config_path.write_text(
         "\n".join(
             [
-                'origin_airport: "YVR"',
+                "origin_airports:",
+                '  - "YVR"',
+                '  - "YXX"',
                 'destination_scope: "美国/加拿大"',
                 "top_n: 10",
                 "interval_hours: 1",
@@ -33,7 +35,7 @@ def test_run_local_web_search_extracts_structured_findings(
     )
     template_path = tmp_path / "prompt.txt"
     template_path.write_text(
-        "Use the installed skill with {origin_airport}, {destination_scope}, {top_n}, {notes}",
+        "Use the installed skill with {origin_airports}, {destination_scope}, {top_n}, {notes}",
         encoding="utf-8",
     )
     log_path = tmp_path / "runs.jsonl"

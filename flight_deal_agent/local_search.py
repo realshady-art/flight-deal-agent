@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 
 DEFAULT_LOCAL_SEARCH_CONFIG: Dict[str, Any] = {
-    "origin_airport": "YVR",
+    "origin_airports": ["YVR", "YXX"],
     "destination_scope": "美国/加拿大",
     "top_n": 10,
     "interval_hours": 1,
@@ -31,7 +31,7 @@ JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 
 
 class LocalWebSearchConfig(BaseModel):
-    origin_airport: str = "YVR"
+    origin_airports: List[str] = Field(default_factory=lambda: ["YVR", "YXX"])
     destination_scope: str = "美国/加拿大"
     top_n: int = Field(default=10, gt=0)
     interval_hours: int = Field(default=1, gt=0)
@@ -75,6 +75,9 @@ def load_local_search_config(path: Path) -> LocalWebSearchConfig:
     if not path.exists():
         return LocalWebSearchConfig.model_validate(DEFAULT_LOCAL_SEARCH_CONFIG)
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if "origin_airports" not in raw and raw.get("origin_airport"):
+        raw["origin_airports"] = [raw["origin_airport"]]
+    raw.pop("origin_airport", None)
     return LocalWebSearchConfig.model_validate(raw)
 
 
@@ -89,7 +92,7 @@ def save_local_search_config(path: Path, config: LocalWebSearchConfig) -> None:
 def render_local_search_prompt(template_path: Path, config: LocalWebSearchConfig) -> str:
     template = template_path.read_text(encoding="utf-8")
     return template.format(
-        origin_airport=config.origin_airport,
+        origin_airports=", ".join(config.origin_airports),
         destination_scope=config.destination_scope,
         top_n=config.top_n,
         notes=config.notes.strip(),

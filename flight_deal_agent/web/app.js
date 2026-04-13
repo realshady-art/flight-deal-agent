@@ -4,6 +4,45 @@ const state = {
   manualSearchRunning: false,
 };
 
+const FIXED_BOARD_ROUTE_COUNT = 10;
+const AIRPORT_LABELS = {
+  YVR: "Vancouver",
+  YXX: "Abbotsford",
+  YYF: "Penticton",
+  YYC: "Calgary",
+  YYJ: "Victoria",
+  YLW: "Kelowna",
+  YEG: "Edmonton",
+  YWG: "Winnipeg",
+  YUL: "Montreal",
+  YOW: "Ottawa",
+  YYZ: "Toronto",
+  YHZ: "Halifax",
+  YXE: "Saskatoon",
+  YQR: "Regina",
+  YQM: "Moncton",
+  YQB: "Quebec City",
+  YYT: "St. John's",
+  LAS: "Las Vegas",
+  LAX: "Los Angeles",
+  PDX: "Portland",
+  SEA: "Seattle",
+  SFO: "San Francisco",
+  SJC: "San Jose",
+  SAN: "San Diego",
+  PHX: "Phoenix",
+  DEN: "Denver",
+  ORD: "Chicago",
+  BOS: "Boston",
+  EWR: "Newark",
+  JFK: "New York",
+  IAD: "Washington",
+  IAH: "Houston",
+  ATL: "Atlanta",
+  DFW: "Dallas",
+  MCO: "Orlando",
+};
+
 async function fetchJson(url, options = {}) {
   const resp = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -48,6 +87,18 @@ function latestUsefulRun(runs) {
   return runs.find((run) => run.status === "ok" && Array.isArray(run.findings) && run.findings.length) || runs[0] || null;
 }
 
+function airportLabel(code) {
+  const normalized = String(code || "").trim().toUpperCase();
+  const city = AIRPORT_LABELS[normalized];
+  return city ? `${city} (${normalized})` : normalized || "Unknown airport";
+}
+
+function routeLabel(finding) {
+  const origin = airportLabel(finding.origin_airport);
+  const destination = airportLabel(finding.destination_airport);
+  return `${origin} ↔ ${destination}`;
+}
+
 function renderRunCard(run) {
   const findingsCount = Array.isArray(run.findings) ? run.findings.length : 0;
   const el = document.createElement("div");
@@ -81,7 +132,7 @@ function renderFindingPlaceholder(index) {
   card.innerHTML = `
     <div class="finding-rank">#${index + 1}</div>
     <div class="finding-link finding-link-placeholder">Waiting for another indexed fare</div>
-    <div class="finding-route">No additional route captured</div>
+    <div class="finding-route">No additional route captured yet</div>
     <div class="finding-price">Pending</div>
     <div class="finding-dates">This hour did not surface enough verified results to fill this slot.</div>
     <div class="finding-note">The board still reserves all requested Top 10 positions so the dashboard shape stays stable.</div>
@@ -93,17 +144,19 @@ function renderFindings(run, targetCount) {
   const root = document.getElementById("findingsGrid");
   root.innerHTML = "";
   if (!run || !Array.isArray(run.findings) || !run.findings.length) {
-    root.innerHTML = `<div class="empty-state">No structured top-route results yet. The server will populate this board after the next successful hourly run.</div>`;
+    for (let index = 0; index < FIXED_BOARD_ROUTE_COUNT; index += 1) {
+      root.appendChild(renderFindingPlaceholder(index));
+    }
     return;
   }
-  const displayCount = Math.max(targetCount || 0, run.findings.length);
+  const displayCount = Math.max(FIXED_BOARD_ROUTE_COUNT, targetCount || 0, run.findings.length);
   run.findings.slice(0, displayCount).forEach((finding, index) => {
     const card = document.createElement("article");
     card.className = "finding-card";
     card.innerHTML = `
       <div class="finding-rank">#${index + 1}</div>
       <a class="finding-link" href="${escapeHtml(finding.source_url)}" target="_blank" rel="noreferrer">Open fare source: ${escapeHtml(finding.source_name)}</a>
-      <div class="finding-route">${escapeHtml(finding.route)}</div>
+      <div class="finding-route">${escapeHtml(routeLabel(finding))}</div>
       <div class="finding-price">${escapeHtml(finding.price_display)}</div>
       <div class="finding-dates">${escapeHtml(finding.date_range)}</div>
       <div class="finding-note">${escapeHtml(finding.note || "No extra note")}</div>
@@ -128,7 +181,7 @@ function updateOverview(bootstrap, scheduler) {
   );
   setText("originValue", (cfg.origin_airports || []).join(", "));
   setText("scopeValue", cfg.destination_scope);
-  setText("topNValue", `${cfg.top_n} routes`);
+  setText("topNValue", `${Math.max(FIXED_BOARD_ROUTE_COUNT, cfg.top_n || 0)} routes`);
   setText("intervalValue", `${cfg.interval_hours} hour(s)`);
   setText("configPath", bootstrap.paths.config);
   setText("promptPath", "flight-hourly-web-search skill");
@@ -146,7 +199,7 @@ function updateSummary(runs, config) {
   setText("boardHeadline", run.headline || "Latest server-side flight snapshot");
   setText(
     "latestMeta",
-    `${run.status === "ok" ? "Latest success" : "Latest run"} · ${formatRunMoment(run.finished_at || run.started_at)} · ${Array.isArray(run.findings) ? run.findings.length : 0} routes`,
+    `${run.status === "ok" ? "Latest success" : "Latest run"} · ${formatRunMoment(run.finished_at || run.started_at)} · showing ${Math.max(FIXED_BOARD_ROUTE_COUNT, config?.top_n || 0)} route slots`,
   );
   setText("summaryText", run.narrative_summary || run.error || run.output || "No summary available.");
   renderFindings(run, config?.top_n || 10);

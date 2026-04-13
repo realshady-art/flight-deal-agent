@@ -66,26 +66,44 @@ function renderRuns(runs) {
   runs.forEach((run) => root.appendChild(renderRunCard(run)));
 }
 
-function renderFindings(run) {
+function renderFindingPlaceholder(index) {
+  const card = document.createElement("article");
+  card.className = "finding-card finding-card-empty";
+  card.innerHTML = `
+    <div class="finding-rank">#${index + 1}</div>
+    <div class="finding-link finding-link-placeholder">Waiting for another indexed fare</div>
+    <div class="finding-route">No additional route captured</div>
+    <div class="finding-price">Pending</div>
+    <div class="finding-dates">This hour did not surface enough verified results to fill this slot.</div>
+    <div class="finding-note">The board still reserves all requested Top 10 positions so the dashboard shape stays stable.</div>
+  `;
+  return card;
+}
+
+function renderFindings(run, targetCount) {
   const root = document.getElementById("findingsGrid");
   root.innerHTML = "";
   if (!run || !Array.isArray(run.findings) || !run.findings.length) {
     root.innerHTML = `<div class="empty-state">No structured top-route results yet. The server will populate this board after the next successful hourly run.</div>`;
     return;
   }
-  run.findings.forEach((finding, index) => {
+  const displayCount = Math.max(targetCount || 0, run.findings.length);
+  run.findings.slice(0, displayCount).forEach((finding, index) => {
     const card = document.createElement("article");
     card.className = "finding-card";
     card.innerHTML = `
       <div class="finding-rank">#${index + 1}</div>
+      <a class="finding-link" href="${escapeHtml(finding.source_url)}" target="_blank" rel="noreferrer">Open fare source: ${escapeHtml(finding.source_name)}</a>
       <div class="finding-route">${escapeHtml(finding.route)}</div>
       <div class="finding-price">${escapeHtml(finding.price_display)}</div>
       <div class="finding-dates">${escapeHtml(finding.date_range)}</div>
       <div class="finding-note">${escapeHtml(finding.note || "No extra note")}</div>
-      <a class="finding-link" href="${escapeHtml(finding.source_url)}" target="_blank" rel="noreferrer">${escapeHtml(finding.source_name)}</a>
     `;
     root.appendChild(card);
   });
+  for (let index = run.findings.length; index < displayCount; index += 1) {
+    root.appendChild(renderFindingPlaceholder(index));
+  }
 }
 
 function updateOverview(bootstrap, scheduler) {
@@ -107,7 +125,7 @@ function updateOverview(bootstrap, scheduler) {
   setText("promptPath", "flight-hourly-web-search skill");
 }
 
-function updateSummary(runs) {
+function updateSummary(runs, config) {
   const run = latestUsefulRun(runs);
   if (!run) {
     setText("boardHeadline", "No hourly run has completed yet.");
@@ -122,7 +140,7 @@ function updateSummary(runs) {
     `${run.status === "ok" ? "Latest success" : "Latest run"} · ${formatRunMoment(run.finished_at || run.started_at)} · ${Array.isArray(run.findings) ? run.findings.length : 0} routes`,
   );
   setText("summaryText", run.narrative_summary || run.error || run.output || "No summary available.");
-  renderFindings(run);
+  renderFindings(run, config?.top_n || 10);
 }
 
 async function refreshDashboard() {
@@ -135,7 +153,7 @@ async function refreshDashboard() {
 
   updateOverview(bootstrap, scheduler);
   renderRuns(bootstrap.recent_runs || []);
-  updateSummary(bootstrap.recent_runs || []);
+  updateSummary(bootstrap.recent_runs || [], bootstrap.config || {});
   setText(
     "boardStatus",
     scheduler.running

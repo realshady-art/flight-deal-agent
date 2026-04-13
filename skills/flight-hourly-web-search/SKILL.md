@@ -31,6 +31,7 @@ Find the best currently visible low-fare options you can verify from public sear
 3. Prefer concrete date ranges over vague marketing copy.
 4. Prefer fresher or more directly attributable sources.
 5. Drop results that have no usable source URL.
+6. Keep searching until you have a credible Top N set when public results support it; do not stop at 3-5 items just because you found a few cheap fares early.
 
 ## Output contract
 
@@ -61,8 +62,8 @@ The JSON object must match this shape:
 
 ## Output rules
 
-- Return at most `top_n` findings.
-- If data is thin, return fewer findings instead of inventing entries.
+- Target `top_n` findings whenever public web results can support that many credible entries.
+- Return fewer findings only when the current web results genuinely do not provide enough verifiable options; never invent entries.
 - `price_value` should be numeric when reasonably inferable, otherwise `null`.
 - `destination_airport` should be IATA when clear; otherwise use the city/airport token that is actually visible.
 - `note` should stay short and factual.

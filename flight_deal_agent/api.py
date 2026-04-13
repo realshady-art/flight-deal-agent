@@ -280,18 +280,13 @@ def run_local_agent() -> Dict[str, Any]:
 @app.post("/api/local/search-now")
 def run_local_agent_from_dashboard() -> Dict[str, Any]:
     try:
-        if _local_search_scheduler is not None:
-            run = _local_search_scheduler.run_now()
-        else:
-            run = run_local_web_search(
-                workdir=_project_root(),
-                config_path=_local_search_config_path(),
-                template_path=_local_search_template_path(),
-                log_path=_local_search_log_path(),
-            )
+        run = run_local_web_search(
+            workdir=_project_root(),
+            config_path=_local_search_config_path(),
+            template_path=_local_search_template_path(),
+            log_path=_local_search_log_path(),
+        )
         return run.model_dump(mode="json")
-    except RuntimeError as exc:
-        raise HTTPException(409, str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         recent = read_recent_local_runs(_local_search_log_path(), limit=1)
         payload = recent[0] if recent else {}

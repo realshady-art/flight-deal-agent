@@ -143,6 +143,9 @@ def test_read_only_dashboard_allows_manual_local_search(
     monkeypatch.setenv("FLIGHT_DEAL_DASHBOARD_READ_ONLY", "1")
 
     def fake_run_now() -> LocalSearchRun:
+        raise AssertionError("dashboard search-now should not reuse the scheduler lock")
+
+    def fake_direct_run(*args, **kwargs) -> LocalSearchRun:
         return LocalSearchRun(
             run_id="testrun123",
             started_at=datetime.now(tz=timezone.utc),
@@ -167,6 +170,7 @@ def test_read_only_dashboard_allows_manual_local_search(
         )
 
     monkeypatch.setattr("flight_deal_agent.api._local_search_scheduler.run_now", fake_run_now)
+    monkeypatch.setattr("flight_deal_agent.api.run_local_web_search", fake_direct_run)
     resp = client.post("/api/local/search-now")
     assert resp.status_code == 200
     body = resp.json()

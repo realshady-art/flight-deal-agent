@@ -100,3 +100,35 @@ def test_setup_writes_local_search_config(client: TestClient, tmp_config: Path):
     text = config_path.read_text(encoding="utf-8")
     assert "origin_airport: SEA" in text
     assert "destination_scope: 美国西海岸" in text
+
+
+def test_read_only_dashboard_blocks_mutations(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("FLIGHT_DEAL_DASHBOARD_READ_ONLY", "1")
+    for path in (
+        "/api/setup",
+        "/api/run",
+        "/api/scheduler/start",
+        "/api/scheduler/stop",
+        "/api/local/run",
+        "/api/local/scheduler/start",
+        "/api/local/scheduler/stop",
+    ):
+        if path == "/api/setup":
+            resp = client.post(
+                path,
+                json={
+                    "origin_airport": "SEA",
+                    "destination_scope": "美国西海岸",
+                    "top_n": 3,
+                    "interval_hours": 2,
+                    "notes": "优先看周末短途。",
+                    "model": "gpt-5.4",
+                    "reasoning_effort": "medium",
+                },
+            )
+        else:
+            resp = client.post(path)
+        assert resp.status_code == 403

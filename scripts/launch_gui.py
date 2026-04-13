@@ -73,6 +73,8 @@ def main() -> int:
     url_host = "127.0.0.1" if host == "0.0.0.0" else host
     url = f"http://{url_host}:{args.port}"
     open_browser_later(url)
+    env = os.environ.copy()
+    env["FLIGHT_DEAL_DASHBOARD_READ_ONLY"] = "1"
     cmd = [
         sys.executable,
         "-m",
@@ -84,7 +86,7 @@ def main() -> int:
         "--port",
         str(args.port),
     ]
-    return subprocess.call(cmd, cwd=ROOT)
+    return subprocess.call(cmd, cwd=ROOT, env=env)
 
 
 if __name__ == "__main__":

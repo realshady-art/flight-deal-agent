@@ -1,6 +1,7 @@
 """FastAPI application with local GUI and setup helpers."""
 from __future__ import annotations
 
+import os
 import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -55,6 +56,15 @@ class SetupResponse(BaseModel):
     config_path: str
     scheduler_interval: str
     log_path: str
+
+
+def _dashboard_read_only() -> bool:
+    return os.environ.get("FLIGHT_DEAL_DASHBOARD_READ_ONLY") == "1"
+
+
+def _reject_if_read_only() -> None:
+    if _dashboard_read_only():
+        raise HTTPException(403, "Dashboard is running in read-only mode")
 
 
 def _project_root() -> Path:
@@ -152,6 +162,7 @@ def runs(limit: int = 20) -> List[Dict]:
 
 @app.post("/api/run", response_model=RunResponse)
 def trigger_run() -> Dict[str, Any]:
+    _reject_if_read_only()
     if _config_path is None or _regions_dir is None:
         raise HTTPException(500, "Server not configured")
     from flight_deal_agent.runner import run_once
@@ -168,6 +179,7 @@ def trigger_run() -> Dict[str, Any]:
 
 @app.post("/api/scheduler/start")
 def scheduler_start() -> Dict[str, str]:
+    _reject_if_read_only()
     if _scheduler is None:
         raise HTTPException(500, "Scheduler not configured")
     _scheduler.start()
@@ -176,6 +188,7 @@ def scheduler_start() -> Dict[str, str]:
 
 @app.post("/api/scheduler/stop")
 def scheduler_stop() -> Dict[str, str]:
+    _reject_if_read_only()
     if _scheduler is None:
         raise HTTPException(500, "Scheduler not configured")
     _scheduler.stop()
@@ -230,16 +243,19 @@ def gui_bootstrap() -> Dict[str, Any]:
             "runner": str(_project_root() / "scripts" / "hourly_flight_web_search_terminal.py"),
         },
         "recent_runs": read_recent_local_runs(_local_search_log_path(), limit=6),
+        "read_only_dashboard": _dashboard_read_only(),
     }
 
 
 @app.post("/api/setup", response_model=SetupResponse)
 def save_setup(request: LocalWebSearchConfig) -> SetupResponse:
+    _reject_if_read_only()
     return _apply_setup(request)
 
 
 @app.post("/api/local/run")
 def run_local_agent() -> Dict[str, Any]:
+    _reject_if_read_only()
     try:
         run = run_local_web_search(
             workdir=_project_root(),
@@ -265,6 +281,7 @@ def recent_local_runs(limit: int = 10) -> List[Dict[str, Any]]:
 
 @app.post("/api/local/scheduler/start")
 def local_scheduler_start() -> Dict[str, Any]:
+    _reject_if_read_only()
     if _local_search_scheduler is None:
         raise HTTPException(500, "Local scheduler not configured")
     _local_search_scheduler.start()
@@ -273,6 +290,7 @@ def local_scheduler_start() -> Dict[str, Any]:
 
 @app.post("/api/local/scheduler/stop")
 def local_scheduler_stop() -> Dict[str, Any]:
+    _reject_if_read_only()
     if _local_search_scheduler is None:
         raise HTTPException(500, "Local scheduler not configured")
     _local_search_scheduler.stop()

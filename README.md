@@ -336,6 +336,11 @@ flight-deal-agent/
 | POST | `/api/scheduler/start` | 启动调度 |
 | POST | `/api/scheduler/stop` | 停止调度 |
 
+说明：
+- 当你通过 `python3 scripts/launch_gui.py` 启动展示面时，进程会自动进入 **read-only dashboard mode**
+- 这时上面的写接口（`POST /api/setup`、`/api/run`、`/api/local/run`、scheduler start/stop 等）会返回 `403`
+- 只读模式的目的是防止 public dashboard 继续被外部拿来改配置或手动打断 scheduler
+
 ---
 
 ## 美国 + 加拿大监控说明

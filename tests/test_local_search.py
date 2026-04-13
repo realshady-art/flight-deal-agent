@@ -42,7 +42,7 @@ def test_run_local_web_search_extracts_structured_findings(
 
     monkeypatch.setenv("CODEX_BIN", "/usr/bin/codex")
 
-    stdout = """```json
+    stdout_yvr = """```json
 {
   "headline": "Two useful fares this hour",
   "summary": "YYC and LAS look cheapest in current indexed results.",
@@ -78,8 +78,39 @@ def test_run_local_web_search_extracts_structured_findings(
 Short terminal summary.
 """
 
+    stdout_yxx = """```json
+{
+  "headline": "One Abbotsford fare this hour",
+  "summary": "YXX surfaced a cheap Vegas fare.",
+  "findings": [
+    {
+      "route": "YXX -> LAS",
+      "origin_airport": "YXX",
+      "destination_airport": "LAS",
+      "price_display": "$109 round trip",
+      "price_value": 109,
+      "currency": "USD",
+      "date_range": "May 12-16",
+      "source_name": "Kayak",
+      "source_url": "https://example.com/yxx-las",
+      "note": "Abbotsford still has a useful U.S. fare."
+    }
+  ]
+}
+```
+
+Short terminal summary.
+"""
+
+    responses = iter(
+        [
+            DummyCompletedProcess(stdout=stdout_yvr),
+            DummyCompletedProcess(stdout=stdout_yxx),
+        ]
+    )
+
     def fake_run(cmd, cwd, capture_output, text):  # noqa: ANN001
-        return DummyCompletedProcess(stdout=stdout)
+        return next(responses)
 
     monkeypatch.setattr("flight_deal_agent.local_search.subprocess.run", fake_run)
 
@@ -92,8 +123,13 @@ Short terminal summary.
 
     assert isinstance(run, LocalSearchRun)
     assert run.status == "ok"
-    assert run.headline == "Two useful fares this hour"
-    assert run.narrative_summary == "YYC and LAS look cheapest in current indexed results."
-    assert len(run.findings) == 2
+    assert run.searched_origins == ["YVR", "YXX"]
+    assert run.missing_origins == []
+    assert "Searched origins: YVR, YXX." in (run.coverage_note or "")
+    assert run.narrative_summary is not None
+    assert "YVR: YYC and LAS look cheapest in current indexed results." in run.narrative_summary
+    assert "YXX: YXX surfaced a cheap Vegas fare." in run.narrative_summary
+    assert len(run.findings) == 3
     assert run.findings[0].route == "YVR -> YYC"
+    assert any(finding.origin_airport == "YXX" for finding in run.findings)
     assert log_path.exists()

@@ -63,6 +63,9 @@ class LocalSearchRun(BaseModel):
     headline: Optional[str] = None
     findings: List[LocalSearchFinding] = Field(default_factory=list)
     narrative_summary: Optional[str] = None
+    searched_origins: List[str] = Field(default_factory=list)
+    missing_origins: List[str] = Field(default_factory=list)
+    coverage_note: Optional[str] = None
 
     @property
     def preview(self) -> str:
@@ -139,6 +142,56 @@ def _parse_findings(payload: Dict[str, Any]) -> List[LocalSearchFinding]:
     return findings
 
 
+def _execute_codex_prompt(*, workdir: Path, config: LocalWebSearchConfig, prompt: str) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        resolve_codex_bin(),
+        "exec",
+        "-C",
+        str(workdir),
+        "-m",
+        config.model,
+        "-s",
+        "workspace-write",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "-c",
+        f'model_reasoning_effort="{config.reasoning_effort}"',
+        prompt,
+    ]
+    return subprocess.run(
+        cmd,
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _finding_sort_key(finding: LocalSearchFinding) -> tuple[float, str, str, str]:
+    price = finding.price_value if finding.price_value is not None else float("inf")
+    return (
+        price,
+        finding.currency or "",
+        finding.date_range,
+        finding.route,
+    )
+
+
+def _dedupe_findings(findings: List[LocalSearchFinding]) -> List[LocalSearchFinding]:
+    seen: set[tuple[str, str, str, str]] = set()
+    deduped: List[LocalSearchFinding] = []
+    for finding in sorted(findings, key=_finding_sort_key):
+        key = (
+            finding.origin_airport,
+            finding.destination_airport,
+            finding.date_range,
+            finding.source_url,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(finding)
+    return deduped
+
+
 def append_local_run(log_path: Path, run: LocalSearchRun) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as fh:
@@ -166,39 +219,51 @@ def run_local_web_search(
     started_at = datetime.now(tz=timezone.utc)
     run_id = uuid4().hex[:12]
     cfg = load_local_search_config(config_path)
-    prompt = render_local_search_prompt(template_path, cfg)
-    cmd = [
-        resolve_codex_bin(),
-        "exec",
-        "-C",
-        str(workdir),
-        "-m",
-        cfg.model,
-        "-s",
-        "workspace-write",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "-c",
-        f'model_reasoning_effort="{cfg.reasoning_effort}"',
-        prompt,
-    ]
-    result = subprocess.run(
-        cmd,
-        cwd=workdir,
-        capture_output=True,
-        text=True,
-    )
     finished_at = datetime.now(tz=timezone.utc)
-    status = "ok" if result.returncode == 0 else "error"
-    output = result.stdout.strip()
-    error = result.stderr.strip() or None
-    payload = _extract_json_payload(output)
-    findings = _parse_findings(payload)
-    headline = payload.get("headline") if isinstance(payload.get("headline"), str) else None
-    narrative_summary = (
-        payload.get("summary")
-        if isinstance(payload.get("summary"), str)
-        else _extract_narrative_text(output) or None
+    searched_origins: List[str] = []
+    missing_origins: List[str] = []
+    combined_findings: List[LocalSearchFinding] = []
+    narrative_chunks: List[str] = []
+    raw_outputs: List[str] = []
+    error_chunks: List[str] = []
+
+    for origin in cfg.origin_airports:
+        searched_origins.append(origin)
+        single_origin_cfg = cfg.model_copy(update={"origin_airports": [origin]})
+        prompt = render_local_search_prompt(template_path, single_origin_cfg)
+        result = _execute_codex_prompt(workdir=workdir, config=single_origin_cfg, prompt=prompt)
+        output = result.stdout.strip()
+        error = result.stderr.strip() or None
+        raw_outputs.append(f"=== {origin} ===\n{output}".strip())
+        payload = _extract_json_payload(output)
+        findings = _parse_findings(payload)
+        if findings:
+            combined_findings.extend(findings)
+        else:
+            missing_origins.append(origin)
+        narrative = (
+            payload.get("summary")
+            if isinstance(payload.get("summary"), str)
+            else _extract_narrative_text(output) or None
+        )
+        if narrative:
+            narrative_chunks.append(f"{origin}: {narrative}")
+        if result.returncode != 0:
+            error_chunks.append(f"{origin}: {error or output or 'codex exec failed'}")
+
+    combined_findings = _dedupe_findings(combined_findings)[: cfg.top_n]
+    finished_at = datetime.now(tz=timezone.utc)
+    status = "error" if error_chunks and not combined_findings else "ok"
+    output = "\n\n".join(chunk for chunk in raw_outputs if chunk).strip()
+    error = "; ".join(error_chunks) or None
+    coverage_note = (
+        f"Searched origins: {', '.join(searched_origins)}. "
+        f"Missing credible fares this run: {', '.join(missing_origins)}."
+        if missing_origins
+        else f"Searched origins: {', '.join(searched_origins)}."
     )
+    headline = f"Best {len(combined_findings)} fares this hour across {', '.join(searched_origins)}"
+    narrative_summary = " ".join(chunk for chunk in [coverage_note, *narrative_chunks] if chunk).strip() or None
     run = LocalSearchRun(
         run_id=run_id,
         started_at=started_at,
@@ -207,12 +272,15 @@ def run_local_web_search(
         output=output,
         error=error,
         headline=headline,
-        findings=findings,
+        findings=combined_findings,
         narrative_summary=narrative_summary,
+        searched_origins=searched_origins,
+        missing_origins=missing_origins,
+        coverage_note=coverage_note,
     )
     if log_path is not None:
         append_local_run(log_path, run)
-    if result.returncode != 0:
+    if error_chunks and not combined_findings:
         raise RuntimeError(error or output or "codex exec failed")
     return run
 

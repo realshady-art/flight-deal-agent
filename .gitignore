@@ -33,5 +33,6 @@ ENV/
 # Local secrets & state
 .env
 config/config.yaml
+config/local_web_search.yaml
 *.db
 data/state/

@@ -30,21 +30,42 @@ def load_bridge_from_proc() -> dict[str, str]:
     pattern = re.compile(
         r'mcp_servers\.chat\.args=\["([^"]+)","--agent-id","([^"]+)","--server-url","([^"]+)","--auth-token","([^"]+)"\]'
     )
-    for pid in os.listdir("/proc"):
-        if not pid.isdigit():
-            continue
-        try:
-            raw = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
-        except OSError:
-            continue
-        args = [a.decode("utf-8", "ignore") for a in raw if a]
-        joined = " ".join(args)
-        if "chat-bridge.js" not in joined or "mcp_servers.chat.enabled=true" not in joined:
-            continue
-        for arg in args:
-            if "mcp_servers.chat.args=" not in arg:
+    proc_dir = Path("/proc")
+    if proc_dir.is_dir():
+        for pid in os.listdir(proc_dir):
+            if not pid.isdigit():
                 continue
-            match = pattern.search(arg)
+            try:
+                raw = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+            except OSError:
+                continue
+            args = [a.decode("utf-8", "ignore") for a in raw if a]
+            joined = " ".join(args)
+            if "chat-bridge.js" not in joined or "mcp_servers.chat.enabled=true" not in joined:
+                continue
+            for arg in args:
+                if "mcp_servers.chat.args=" not in arg:
+                    continue
+                match = pattern.search(arg)
+                if match:
+                    bridge_path, agent_id, server_url, auth_token = match.groups()
+                    return {
+                        "CHAT_BRIDGE_PATH": bridge_path,
+                        "CHAT_AGENT_ID": agent_id,
+                        "CHAT_SERVER_URL": server_url,
+                        "CHAT_AUTH_TOKEN": auth_token,
+                    }
+    else:
+        result = subprocess.run(
+            ["ps", "-axo", "command="],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        for line in result.stdout.splitlines():
+            if "chat-bridge.js" not in line or "mcp_servers.chat.enabled=true" not in line:
+                continue
+            match = pattern.search(line)
             if match:
                 bridge_path, agent_id, server_url, auth_token = match.groups()
                 return {

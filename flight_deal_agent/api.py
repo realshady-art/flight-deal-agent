@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 import socket
+import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -35,6 +37,13 @@ _config_path: Optional[Path] = None
 _regions_dir: Optional[Path] = None
 _scheduler: Any = None  # set at startup
 _local_search_scheduler: Optional[LocalWebSearchScheduler] = None
+_manual_search_lock = threading.Lock()
+_manual_search_state: Dict[str, Any] = {
+    "running": False,
+    "last_started_at": None,
+    "last_finished_at": None,
+    "last_error": None,
+}
 
 NO_STORE_HEADERS = {"Cache-Control": "no-store"}
 
@@ -86,6 +95,39 @@ def _local_search_log_path() -> Path:
 
 def _local_search_template_path() -> Path:
     return _project_root() / "scripts" / "hourly_flight_web_search_terminal_prompt.txt"
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _snapshot_manual_search_state() -> Dict[str, Any]:
+    return dict(_manual_search_state)
+
+
+def _run_manual_local_search_in_background() -> None:
+    if not _manual_search_lock.acquire(blocking=False):
+        raise HTTPException(409, "Manual local search is already running")
+    _manual_search_state["running"] = True
+    _manual_search_state["last_started_at"] = _utc_now_iso()
+    _manual_search_state["last_error"] = None
+
+    def _worker() -> None:
+        try:
+            run_local_web_search(
+                workdir=_project_root(),
+                config_path=_local_search_config_path(),
+                template_path=_local_search_template_path(),
+                log_path=_local_search_log_path(),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _manual_search_state["last_error"] = str(exc)
+        finally:
+            _manual_search_state["running"] = False
+            _manual_search_state["last_finished_at"] = _utc_now_iso()
+            _manual_search_lock.release()
+
+    threading.Thread(target=_worker, daemon=True).start()
 
 
 def _apply_setup(req: LocalWebSearchConfig) -> SetupResponse:
@@ -283,22 +325,28 @@ def run_local_agent() -> Dict[str, Any]:
 
 @app.post("/api/local/search-now")
 def run_local_agent_from_dashboard() -> Dict[str, Any]:
-    try:
-        run = run_local_web_search(
-            workdir=_project_root(),
-            config_path=_local_search_config_path(),
-            template_path=_local_search_template_path(),
-            log_path=_local_search_log_path(),
-        )
-        return run.model_dump(mode="json")
-    except Exception as exc:  # noqa: BLE001
-        recent = read_recent_local_runs(_local_search_log_path(), limit=1)
-        payload = recent[0] if recent else {}
-        return {
-            "status": "error",
-            "error": str(exc),
-            "last_run": payload,
-        }
+    _run_manual_local_search_in_background()
+    return {
+        "status": "accepted",
+        "message": "Manual local search started on the server host.",
+        "manual_search": _snapshot_manual_search_state(),
+    }
+
+
+@app.get("/api/local/search-status")
+def local_search_status(response: Response) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
+    recent = read_recent_local_runs(_local_search_log_path(), limit=1)
+    latest_run = recent[0] if recent else None
+    return {
+        "manual_search": _snapshot_manual_search_state(),
+        "scheduler": {
+            "running": _local_search_scheduler.is_running if _local_search_scheduler else False,
+            "job_running": _local_search_scheduler.is_job_running if _local_search_scheduler else False,
+            "next_run_at": _local_search_scheduler.next_run_at if _local_search_scheduler else None,
+        },
+        "latest_run": latest_run,
+    }
 
 
 @app.get("/api/local/runs")
@@ -329,4 +377,6 @@ def local_scheduler_stop() -> Dict[str, Any]:
 def local_scheduler_status(response: Response) -> Dict[str, Any]:
     response.headers["Cache-Control"] = "no-store"
     running = _local_search_scheduler.is_running if _local_search_scheduler else False
-    return {"running": running}
+    job_running = _local_search_scheduler.is_job_running if _local_search_scheduler else False
+    next_run_at = _local_search_scheduler.next_run_at if _local_search_scheduler else None
+    return {"running": running, "job_running": job_running, "next_run_at": next_run_at}

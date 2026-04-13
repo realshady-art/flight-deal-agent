@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -161,7 +162,10 @@ def test_read_only_dashboard_allows_manual_local_search(
     def fake_run_now() -> LocalSearchRun:
         raise AssertionError("dashboard search-now should not reuse the scheduler lock")
 
+    completed = {"value": False}
+
     def fake_direct_run(*args, **kwargs) -> LocalSearchRun:
+        completed["value"] = True
         return LocalSearchRun(
             run_id="testrun123",
             started_at=datetime.now(tz=timezone.utc),
@@ -190,5 +194,25 @@ def test_read_only_dashboard_allows_manual_local_search(
     resp = client.post("/api/local/search-now")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["status"] == "ok"
-    assert body["run_id"] == "testrun123"
+    assert body["status"] == "accepted"
+    for _ in range(50):
+        if completed["value"]:
+            break
+        time.sleep(0.01)
+    assert completed["value"] is True
+    status = client.get("/api/local/search-status")
+    assert status.status_code == 200
+    status_body = status.json()
+    assert status_body["manual_search"]["last_started_at"] is not None
+
+
+def test_local_search_status_reports_scheduler_details(client: TestClient):
+    resp = client.get("/api/local/search-status")
+    assert resp.status_code == 200
+    assert resp.headers["cache-control"] == "no-store"
+    body = resp.json()
+    assert "manual_search" in body
+    assert "scheduler" in body
+    assert "running" in body["scheduler"]
+    assert "job_running" in body["scheduler"]
+    assert "next_run_at" in body["scheduler"]

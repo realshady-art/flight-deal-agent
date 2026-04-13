@@ -379,5 +379,21 @@ class LocalWebSearchScheduler:
     def is_running(self) -> bool:
         return bool(self._scheduler and self._scheduler.running)
 
+    @property
+    def is_job_running(self) -> bool:
+        return self._job_lock.locked()
+
+    @property
+    def next_run_at(self) -> Optional[str]:
+        if not self._scheduler:
+            return None
+        job = self._scheduler.get_job("local_web_search")
+        if not job or not job.next_run_time:
+            return None
+        ts = job.next_run_time
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return ts.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
     def recent_runs(self, limit: int = 10) -> List[Dict[str, Any]]:
         return read_recent_local_runs(self._log_path, limit=limit)

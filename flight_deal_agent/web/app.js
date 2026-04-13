@@ -71,6 +71,13 @@ function setSearchButtonState(running) {
   button.textContent = running ? "Searching..." : "Start search";
 }
 
+function formatStatusMoment(value) {
+  if (!value) return "unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -210,9 +217,10 @@ function updateSummary(runs, config) {
 }
 
 async function refreshDashboard() {
-  const [bootstrap, scheduler] = await Promise.all([
+  const [bootstrap, scheduler, searchStatus] = await Promise.all([
     fetchJson("/api/gui/bootstrap"),
     fetchJson("/api/local/scheduler/status"),
+    fetchJson("/api/local/search-status"),
   ]);
   state.bootstrap = bootstrap;
   state.scheduler = scheduler;
@@ -220,11 +228,19 @@ async function refreshDashboard() {
   updateOverview(bootstrap, scheduler);
   renderRuns(bootstrap.recent_runs || []);
   updateSummary(bootstrap.recent_runs || [], bootstrap.config || {});
+  setSearchButtonState(Boolean(searchStatus.manual_search?.running));
+  const nextRunText = scheduler.next_run_at
+    ? ` Next hourly run: ${formatStatusMoment(scheduler.next_run_at)}.`
+    : "";
   setText(
     "boardStatus",
-    scheduler.running
-      ? "This board refreshes hourly on the server host. Use Start search only when you want one extra server-side run for testing."
-      : "Server loaded, but the hourly worker is not running.",
+    searchStatus.manual_search?.running
+      ? `A manual server-side search is currently running.${nextRunText}`
+      : scheduler.job_running
+        ? `The hourly server-side search is currently running.${nextRunText}`
+        : scheduler.running
+          ? `This board refreshes hourly on the server host.${nextRunText} Use Start search only when you want one extra server-side run for testing.`
+          : "Server loaded, but the hourly worker is not running.",
   );
 }
 
@@ -235,11 +251,9 @@ async function triggerManualSearch() {
   try {
     await fetchJson("/api/local/search-now", { method: "POST" });
     await refreshDashboard();
-    setText("boardStatus", "Manual search completed on the server host.");
+    setText("boardStatus", "Manual search started on the server host. This board will refresh when the new run finishes.");
   } catch (error) {
     setText("boardStatus", `Manual search failed: ${error}`);
-  } finally {
-    setSearchButtonState(false);
   }
 }
 

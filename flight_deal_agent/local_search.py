@@ -26,6 +26,7 @@ DEFAULT_LOCAL_SEARCH_CONFIG: Dict[str, Any] = {
     "model": "gpt-5.4",
     "reasoning_effort": "medium",
 }
+FIXED_DASHBOARD_TOP_N = 10
 
 JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
 
@@ -81,10 +82,12 @@ def load_local_search_config(path: Path) -> LocalWebSearchConfig:
     if "origin_airports" not in raw and raw.get("origin_airport"):
         raw["origin_airports"] = [raw["origin_airport"]]
     raw.pop("origin_airport", None)
-    return LocalWebSearchConfig.model_validate(raw)
+    config = LocalWebSearchConfig.model_validate(raw)
+    return config.model_copy(update={"top_n": FIXED_DASHBOARD_TOP_N})
 
 
 def save_local_search_config(path: Path, config: LocalWebSearchConfig) -> None:
+    config = config.model_copy(update={"top_n": FIXED_DASHBOARD_TOP_N})
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         yaml.safe_dump(config.model_dump(), sort_keys=False, allow_unicode=True),

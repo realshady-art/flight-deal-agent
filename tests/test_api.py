@@ -78,6 +78,7 @@ def test_gui_bootstrap(client: TestClient):
     assert resp.status_code == 200
     body = resp.json()
     assert body["config"]["origin_airports"] == ["YVR", "YXX"]
+    assert body["config"]["top_n"] == 10
     assert body["paths"]["config"].endswith("local_web_search.yaml")
     assert "host" in body["codex"]
     assert "runner" in body["paths"]
@@ -101,6 +102,7 @@ def test_setup_writes_local_search_config(client: TestClient, tmp_config: Path):
     assert config_path.exists()
     text = config_path.read_text(encoding="utf-8")
     assert "- SEA" in text
+    assert "top_n: 10" in text
     assert "destination_scope: 美国西海岸" in text
 
 

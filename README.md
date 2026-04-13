@@ -103,7 +103,36 @@ python -m flight_deal_agent serve
 # 也可用系统 cron 每小时：python -m flight_deal_agent run-once -c /path/to/config.yaml
 ```
 
-**5. 移交检查清单（建议打勾）**
+**5. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**
+
+仓库里带了一套可复用的 Python 入口：
+
+```bash
+python3 scripts/hourly_flight_web_search_reminder.py
+```
+
+它会往聊天里发固定提醒，要求当前 agent 只用 `web search` 去查 `YVR -> 美国/加拿大` 的低价航线。
+
+前置条件：
+- 本机有 `python3`
+- 本机有 `codex` CLI
+- 本机能访问当前聊天系统的 `chat bridge`
+- 要么在 `scripts/.chat_bridge.env` 里放：
+  - `CHAT_BRIDGE_PATH`
+  - `CHAT_AGENT_ID`
+  - `CHAT_SERVER_URL`
+  - `CHAT_AUTH_TOKEN`
+- 字段模板见 `scripts/.chat_bridge.env.example`
+- 要么本机已经有一个带 `chat bridge` 配置的 Codex 进程，脚本会自动发现
+
+示例 cron：
+
+```cron
+CRON_TZ=America/Vancouver
+0 * * * * /absolute/path/to/flight-deal-agent/scripts/hourly_flight_web_search_reminder.py
+```
+
+**6. 移交检查清单（建议打勾）**
 
 - [ ] `pytest -v` 全绿  
 - [ ] `verify-amadeus` 通过（若使用 Amadeus）  

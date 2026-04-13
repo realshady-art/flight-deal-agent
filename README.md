@@ -1,364 +1,376 @@
 # flight-deal-agent
 
-按 **目的地区域** 监控 **往返** 特价航班的后端程序。  
-定时触发 → 采集报价 → 落库 → 规则筛选 → 通知 + 汇总。  
-本地可用，也预留了 API 和调度器供日后部署到服务器。
+A flight monitoring project that can run in two modes:
 
-**仓库**：https://github.com/realshady-art/flight-deal-agent  
+- a traditional pipeline with collectors, storage, rules, and notifications
+- a local Codex-powered web-search dashboard that refreshes hourly and shows the current best fares
 
----
+Repository:
+`https://github.com/realshady-art/flight-deal-agent`
 
-## 项目进度（移交说明）
+## Current Product State
 
-**当前版本**：v0.2.1（以 `flight_deal_agent/__init__.py` 与 `pyproject.toml` 为准）
+The current primary user-facing flow is the local dashboard:
 
-**已完成（可在另一台机器上直接 clone验证）**
+- server-hosted FastAPI dashboard
+- hourly server-side searches using local `codex exec`
+- web search only for the dashboard workflow
+- no paid flight API required for the dashboard
+- fixed Vancouver-area origin scope by default: `YVR` and `YXX`
+- fixed Top 10 display board
+- optional manual `Start search` trigger for testing
 
-- 后端流水线：`run-once` = 规划任务 → 采集（stub / Amadeus / SearchApi）→ SQLite 落库 → 策略筛选 → stdout 通知 → 运行日志。
-- **Amadeus**：OAuth2 + Flight Inspiration（扫目的地）+ Flight Offers Search（补漏/复核思路在 `collector.py`）；免费层需自行注册密钥。
-- **SearchApi**：Google Flights 搜索已接入 `searchapi` provider，适合当前 MVP。
-- **配置**：YAML + `data/regions/*.yaml` 机场池；`python-dotenv` 自动加载根目录 `.env`。
-- **命令**：`run-once`、`serve`（FastAPI + APScheduler）、`check-config`、`verify-amadeus`（`--oauth-only` 可选）。
-- **HTTP API**：健康检查、deals/quotes/runs、手动触发、调度器启停、脱敏配置（见下文 API 表）。
-- **测试**：`pytest` 全量应通过（当前约 35+ 条，以本机 `pytest -v` 为准）。
+The older API-backed collectors are still in the repository and remain usable for development:
 
-**未完成 / 未接入**
+- `stub`
+- `amadeus`
+- `searchapi`
 
-- GUI 安装器仍是本地单机版，尚未做成正式桌面安装包（`.dmg` / `.msi`）。
-- Telegram / Email通知（`notifier.py` 仅占位）。
-- 第二数据源、生产环境配额与成本监控、告警运维面板。
-- 与 Clockwork 等外部调度器的正式对接文档（当前可用系统 cron 或自带 `serve` 内调度）。
+## What The Dashboard Does
 
----
+The dashboard is intended to be a read-only display board, not a parameter control panel.
 
-## 现状（v0.2.1）功能一览
+It now does the following:
 
-| 模块 | 状态 |
-|------|------|
-| 配置 YAML + 区域机场池 | 可用 |
-| CLI（run-once / serve / check-config / verify-amadeus） | 可用 |
-| 自动加载根目录 `.env`（python-dotenv） | 可用 |
-| Amadeus Self-Service 采集器 | 可用（需免费注册获取 key） |
-| SearchApi Google Flights 采集器 | 可用（需 SearchApi key） |
-| Stub 采集器（离线测试） | 可用 |
-| SQLite 落库 + 历史查询 | 可用 |
-| 策略：绝对阈值 + 历史中位数 + 通知冷却 | 可用 |
-| 通知：stdout | 可用 |
-| 通知：Telegram / Email | 预留接口 |
-| APScheduler 定时调度 | 可用 |
-| FastAPI + 本地 GUI | 可用 |
-| pytest | 全部通过（移交后请在目标机执行 `pytest -v` 复核） |
+- runs hourly on the server host
+- uses the installed `flight-hourly-web-search` skill
+- searches all configured origin airports, not just one
+- aggregates, deduplicates, sorts, and displays the current Top 10 routes
+- shows route labels as `City (IATA) ↔ City (IATA)`
+- places a visible fare-source link at the top of each real route card
+- keeps `Start search` independent from the hourly scheduler
 
----
+Default dashboard search scope:
 
-## 待办事项（TODO / Backlog）
+- origin airports: `YVR`, `YXX`
+- destination scope: United States and Canada
+- top routes shown: `10`
+- refresh cadence: `1 hour`
 
-按优先级大致排序，供下一台机器上的同事继续开发。
+## Status Summary
 
-| 优先级 | 事项 | 说明 |
-|--------|------|------|
-| P0 | 配置 SearchApi / Amadeus 密钥 | SearchApi 更适合当前 MVP；密钥只放 `.env`，勿提交仓库。 |
-| P1 | 根据配额调 `request_budget_per_run` 与调度间隔 | 避免超额；现已支持 `scheduler.interval_hours` / `interval_minutes`，但全量航线仍受预算限制。 |
-| P1 | 实现 Telegram或邮件通知 | 改 `notifier.py`，配置项可扩到 `config.yaml` 的 `alerts`。 |
-| P2 | Flight Offers **二次复核**策略细化 | Inspiration 为缓存价；文档已建议命中后再 Offers，可按 deal 阈值触发复核以减 API 次数。 |
-| P2 | 前端 | 对接现有 FastAPI（`/api/*`），或新增鉴权（Token / Cookie）。 |
-| P2 | 服务器部署 | systemd / Docker、`127.0.0.1` 反代、HTTPS、日志轮转；`.env` 权限 `600`。 |
-| P3 | 多用户 / 多配置 | 当前单配置文件；若产品化需租户模型与 DB 迁移。 |
-| P3 | 更多 collector adapter | 在 `collector.py` 或拆分子包，保持 `provider` 枚举一致。 |
+### Working
 
----
+- FastAPI server
+- local GUI / dashboard
+- hourly local search scheduler
+- local `codex exec` search runner
+- multi-origin fan-out across `YVR` and `YXX`
+- fixed Top 10 board
+- recent run log
+- installer and launcher scripts
+- pytest coverage for API and local search paths
 
-## 下一步：在新机器 / 服务器上怎么做**1. 拉代码与环境**
+### Still Out Of Scope
 
-```bash
-git clone https://github.com/realshady-art/flight-deal-agent.git
-cd flight-deal-agent
-python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -U pip && pip install -e ".[dev]"
-pytest -v    # 确认测试通过
-```
+- native desktop installer packages such as `.dmg` or `.msi`
+- authentication and user-level permissions
+- production-grade deployment packaging
+- Telegram and email notifications in the local dashboard flow
+- cost-controlled production flight search at large scale
 
-**2. 配置（二选一或并存）**
+## Quick Start
 
-- **仅验证流水线、不调外网**：`cp config/config.example.yaml config/config.yaml`，保持 `collector.provider: stub`。
-- **真实询价（SearchApi）**：`cp .env.example .env`，填入 `SEARCHAPI_API_KEY`；`cp config/config.searchapi.example.yaml config/config.yaml`。
-- **真实询价（Amadeus）**：`cp .env.example .env`，填入 Amadeus；`cp config/config.amadeus.example.yaml config/config.yaml`；改出发地、区域、阈值。
-- **美国 + 加拿大 10 分钟监控模板**：`cp config/config.us_ca.amadeus.example.yaml config/config.yaml`，再按你的配额与阈值微调。
-
-**3. 验证 Amadeus（有密钥后）**
-
-```bash
-python -m flight_deal_agent verify-amadeus
-# 或仅测 OAuth2：python -m flight_deal_agent verify-amadeus --oauth-only
-python -m flight_deal_agent check-config
-python -m flight_deal_agent run-once
-```
-
-**4. 常驻服务（服务器）**
-
-```bash
-python -m flight_deal_agent serve
-# 监听地址与端口见 config.yaml → api.host / api.port；默认 127.0.0.1:8000
-# 仅 API、不用内置调度：python -m flight_deal_agent serve --no-scheduler
-# 也可用系统 cron 每小时：python -m flight_deal_agent run-once -c /path/to/config.yaml
-```
-
-**5. 本地 GUI 安装（推荐给非开发用户）**
-
-如果你希望用户下载后，先跑一个安装器，再通过图形界面查看服务器每小时拉回来的低价航线结果，用这两步：
-
-```bash
-python3 scripts/install_gui.py
-python3 scripts/launch_gui.py
-```
-
-然后打开：
-
-```text
-http://127.0.0.1:8000
-```
-
-GUI 当前支持：
-- 展示服务器当前的 `Codex web-search` 运行状态
-- 展示最近一次 successful run 的 Top 10 结果
-- 展示 recent runs / 最近一次查询输出
-- 服务启动后自动拉起 hourly scheduler
-- 启动时如果结果过期，会先补一轮 immediate search 再展示
-
-适用边界：
-- 这是只读 display board，不是调参控制台
-- 第一次仍然需要机器本身有 `python3`
-- flight monitor 配置仍然在 `config/local_web_search.yaml`
-- 当前这条 GUI **不依赖付费航班 API key**，默认走本地 `codex exec + web search`
-- 搜索逻辑已经收进 `flight-hourly-web-search` skill，并在安装时同步到本机 `CODEX_HOME`
-
-如果你要的是“任何人打开同一个界面，但请求都固定跑在某一台服务器 / agent 主机的本地 Codex”，不要让每个人各自本地启动 GUI。正确做法是：
-
-```bash
-python3 scripts/install_gui.py
-python3 scripts/launch_gui.py --public --host 0.0.0.0 --port 8000
-```
-
-然后其他人访问：
-
-```text
-http://<这台服务器或 agent 主机的 IP>:8000
-```
-
-这时：
-- hourly search 跑在**启动 GUI 的那台主机本地** `codex exec`
-- scheduler 也跑在**这台主机**
-- 客户端机器只是在访问网页，不会执行本地查询
-
-**6. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**
-
-仓库里带了一套可复用的 Python 入口：
-
-```bash
-python3 scripts/hourly_flight_web_search_reminder.py
-```
-
-它会往聊天里发固定提醒，要求当前 agent 只用 `web search` 去查 `YVR -> 美国/加拿大` 的低价航线。
-
-前置条件：
-- 本机有 `python3`
-- 本机有 `codex` CLI
-- 本机能访问当前聊天系统的 `chat bridge`
-- 要么在 `scripts/.chat_bridge.env` 里放：
-  - `CHAT_BRIDGE_PATH`
-  - `CHAT_AGENT_ID`
-  - `CHAT_SERVER_URL`
-  - `CHAT_AUTH_TOKEN`
-- 字段模板见 `scripts/.chat_bridge.env.example`
-- 要么本机已经有一个带 `chat bridge` 配置的 Codex 进程，脚本会自动发现
-
-示例 cron：
-
-```cron
-CRON_TZ=America/Vancouver
-0 * * * * /absolute/path/to/flight-deal-agent/scripts/hourly_flight_web_search_reminder.py
-```
-
-**7. 移交检查清单（建议打勾）**
-
-- [ ] `pytest -v` 全绿  
-- [ ] `verify-amadeus` 通过（若使用 Amadeus）  
-- [ ] `config/config.yaml` 与 `data/regions/*` 已按业务改好  
-- [ ] `.env` 已在目标机创建且权限安全  
-- [ ] SQLite 路径 `storage.sqlite_path` 在磁盘上有写权限、已考虑备份  
-- [ ] 若公网暴露 API：已加反向代理 + TLS + 访问控制（当前 API **无鉴权**）
-
----
-
-## 快速开始
-
-**环境**：Python 3.9+
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/realshady-art/flight-deal-agent.git
 cd flight-deal-agent
-python3 -m venv .venv && source .venv/bin/activate
-pip install -U pip && pip install -e ".[dev]"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -e ".[dev]"
 ```
 
-### 1. 准备配置
-
-**离线（stub，不调外网）**
-
-```bash
-cp config/config.example.yaml config/config.yaml
-python -m flight_deal_agent run-once
-```
-
-**接 SearchApi（当前更适合跑 MVP）**
-
-```bash
-cp .env.example .env
-# 在 https://www.searchapi.io 注册 → Dashboard → API Keys → 把 key 填入 .env
-cp config/config.searchapi.example.yaml config/config.yaml
-python -m flight_deal_agent check-config
-python -m flight_deal_agent run-once
-```
-
-**接 Amadeus（备用）**
-
-```bash
-cp .env.example .env
-# 在 https://developers.amadeus.com 注册 → 创建 App → 把 API Key / Secret 填入 .env
-cp config/config.amadeus.example.yaml config/config.yaml
-# 按需改出发机场、区域、阈值等
-python -m flight_deal_agent verify-amadeus          # OAuth2 + Inspiration 探测
-# 或: python -m flight_deal_agent verify-amadeus --oauth-only   # 只测登录，省一次业务请求
-python -m flight_deal_agent check-config
-python -m flight_deal_agent run-once
-```
-
-程序启动时会自动从**项目根目录**和**当前工作目录**加载 `.env`，无需手动 export。
-
-### 2. 校验配置
-
-```bash
-python -m flight_deal_agent check-config
-```
-
-### 3. 跑一轮
-
-```bash
-python -m flight_deal_agent run-once
-```
-
-### 4. 启动 API + 定时调度
-
-```bash
-python -m flight_deal_agent serve
-# 默认 http://127.0.0.1:8000，按 config.yaml 里的 interval 自动扫
-# --no-scheduler 仅启动 API 不自动扫
-```
-
-### 4.1 启动本地 GUI（推荐）
-
-```bash
-python3 scripts/install_gui.py
-python3 scripts/launch_gui.py
-```
-
-启动后浏览器会自动尝试打开 `http://127.0.0.1:8000`。如果没有自动打开，就手动访问这个地址。
-
-如果你要把 GUI 作为一台主机上的**共享控制面板**来跑，让别的电脑打开网页但实际查询都固定在这台主机执行，用：
-
-```bash
-python3 scripts/launch_gui.py --public --host 0.0.0.0 --port 8000
-```
-
-### 5. 跑测试
+### 2. Run tests
 
 ```bash
 pytest -v
 ```
 
----
+### 3. Install the local dashboard runtime
 
-## Amadeus 免费层
-
-注册 [Amadeus for Developers](https://developers.amadeus.com) 获取 `client_id` 和 `client_secret`，写入 `.env`。
-
-- **测试环境**（`amadeus.test_mode: true`）：`test.api.amadeus.com`，多为缓存/样例数据，适合联调。
-- **生产环境**（`false`）：真实票价；每月有免费调用额度（以官网说明为准）。
-
-在 `config.yaml` 中设置 `collector.provider: amadeus`。模板见 `config/config.amadeus.example.yaml`。
-
----
-
-## 项目结构
-
-```text
-flight-deal-agent/
-├── config/
-│   └── config.example.yaml     # 主配置模板
-├── data/
-│   └── regions/                 # 区域 → IATA 机场池
-├── flight_deal_agent/
-│   ├── cli.py                   # 命令行入口
-│   ├── runner.py                # run-once 编排
-│   ├── settings.py              # 配置加载
-│   ├── models.py                # 数据模型（Pydantic）
-│   ├── orchestrator.py          # 任务规划 + 日期采样
-│   ├── collector.py             # 采集（stub / Amadeus / SearchApi）
-│   ├── storage.py               # SQLite 存储 + 历史统计
-│   ├── analyst.py               # 特价判断规则
-│   ├── notifier.py              # 通知（stdout / 预留）
-│   ├── scheduler.py             # APScheduler 定时
-│   ├── api.py                   # FastAPI + GUI setup API
-│   └── web/                     # GUI 静态页面
-├── scripts/
-│   ├── install_gui.py           # 创建 GUI 运行时并装依赖
-│   └── launch_gui.py            # 启动 GUI 并自动开浏览器
-├── tests/                       # pytest（条数以 pytest收集为准）
-├── pyproject.toml
-└── README.md
+```bash
+python3 scripts/install_gui.py
 ```
 
----
+### 4. Launch the dashboard on the current machine
 
-## API 端点（供前端 / 调试）
+```bash
+python3 scripts/launch_gui.py
+```
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/health` | 健康检查 + 调度器状态 |
-| GET | `/api/deals` | 最近通知过的 deal |
-| GET | `/api/quotes` | 最近采集的报价 |
-| GET | `/api/runs` | 运行日志 |
-| POST | `/api/run` | 手动触发一轮 |
-| GET | `/api/config` | 当前配置（脱敏） |
-| GET | `/api/gui/bootstrap` | GUI 初始化数据（本地查询配置、Codex 状态、路径） |
-| POST | `/api/setup` | 保存 `config/local_web_search.yaml` |
-| GET | `/api/scheduler/status` | 调度器状态 |
-| POST | `/api/scheduler/start` | 启动调度 |
-| POST | `/api/scheduler/stop` | 停止调度 |
+Then open:
 
-说明：
-- 当你通过 `python3 scripts/launch_gui.py` 启动展示面时，进程会自动进入 **read-only dashboard mode**
-- 这时上面的写接口（`POST /api/setup`、`/api/run`、`/api/local/run`、scheduler start/stop 等）会返回 `403`
-- 只读模式的目的是防止 public dashboard 继续被外部拿来改配置或手动打断 scheduler
+```text
+http://127.0.0.1:8000
+```
 
----
+### 5. Launch the dashboard as a shared server
 
-## 美国 + 加拿大监控说明
+If you want other machines to open the same board while all searches still run on this host:
 
-如果你的目标是“每 10 分钟扫一次美国 + 加拿大主要航线，只在明显便宜时提醒”，当前仓库已经能直接配置到这一层：
+```bash
+python3 scripts/install_gui.py
+python3 scripts/launch_gui.py --public --host 0.0.0.0 --port 8000
+```
 
-- `origin_region_id: "us_ca_major"` + `target_region_id: "us_ca_major"`：把出发地和目的地都限制在美国/加拿大主要机场池
-- `scheduler.interval_minutes: 10`：10 分钟级调度
-- `thresholds.below_median_pct`：只在明显低于历史中位价时提醒
+Other clients should then open:
 
-但有一个边界要明确：
+```text
+http://<server-host-ip>:8000
+```
 
-- 当前 orchestrator 仍然受 `collector.request_budget_per_run` 限制
-- 所以它是“按预算轮询主要航线”，不是“无限制穷举北美所有机场对”
-- 这层是故意保留的，不然免费额度会很快耗尽
+In this mode:
 
----
+- the GUI runs on the current host
+- the hourly scheduler runs on the current host
+- `Start search` runs on the current host
+- local `codex exec` also runs on the current host
 
-## 免责声明
+## Dashboard Runtime Requirements
 
-票价以供应商实际下单页为准；本工具仅用于技术学习与个人监控。使用第三方 API 时请遵守其服务条款。
+The dashboard flow does not require a SearchApi key, but it does require:
+
+- Python 3.9+
+- a working local `codex` CLI
+- a machine where `codex exec` can perform web search successfully
+
+If `codex` is not on `PATH`, set:
+
+```bash
+export CODEX_BIN=/absolute/path/to/codex
+```
+
+## Important Dashboard Behavior
+
+### Read-only mode
+
+The public dashboard is designed to behave as a read-only board.
+
+That means:
+
+- no provider editing
+- no API key editing
+- no interval editing
+- no scheduler start/stop controls in the UI
+
+The only manual action intentionally left available is:
+
+- `Start search`
+
+This is for testing and on-demand refresh only.
+
+### Top 10 is fixed
+
+For the dashboard workflow, `top_n` is pinned to `10` at runtime.
+
+That pin is enforced in:
+
+- config load
+- config save
+- installer-generated defaults
+- rendering logic
+
+### Origin scope is fixed to Vancouver-area origins by default
+
+The dashboard currently defaults to:
+
+```yaml
+origin_airports:
+  - YVR
+  - YXX
+```
+
+The local search execution path fans out across both origins and then merges results back into one ranked board.
+
+## Local Web Search Scripts
+
+### Terminal-only runner
+
+If you want a local terminal result instead of the dashboard:
+
+```bash
+python3 scripts/hourly_flight_web_search_terminal.py
+```
+
+This script:
+
+- runs a local search immediately
+- prints results to stdout
+- writes the run to `data/state/local_web_search_runs.jsonl`
+
+### Chat reminder runner
+
+If you want the old reminder behavior that posts a prompt into chat:
+
+```bash
+python3 scripts/hourly_flight_web_search_reminder.py
+```
+
+This is a different workflow. It is not the same as the local terminal runner.
+
+## Files You Will Use Most
+
+### Launcher and installer
+
+- `scripts/install_gui.py`
+- `scripts/launch_gui.py`
+
+### Local dashboard config
+
+- `config/local_web_search.yaml`
+
+### Local run log
+
+- `data/state/local_web_search_runs.jsonl`
+
+### Prompt / skill assets
+
+- `skills/flight-hourly-web-search/SKILL.md`
+- `scripts/hourly_flight_web_search_terminal_prompt.txt`
+
+### Frontend files
+
+- `flight_deal_agent/web/index.html`
+- `flight_deal_agent/web/app.js`
+- `flight_deal_agent/web/app.css`
+
+### Server-side runtime
+
+- `flight_deal_agent/api.py`
+- `flight_deal_agent/local_search.py`
+
+## Legacy Collector Mode
+
+The repository still contains the original collector-based pipeline.
+
+Available providers include:
+
+- `stub`
+- `amadeus`
+- `searchapi`
+
+These are still useful for development, experiments, or future production work, but the current GUI product direction is the local Codex web-search dashboard.
+
+### Run the old pipeline once
+
+```bash
+python -m flight_deal_agent run-once
+```
+
+### Check config
+
+```bash
+python -m flight_deal_agent check-config
+```
+
+### Start the old API and scheduler service
+
+```bash
+python -m flight_deal_agent serve
+```
+
+## Configuration Notes
+
+### Root `.env`
+
+The project still supports a root `.env` for the legacy collector-based modes.
+
+Examples:
+
+- `SEARCHAPI_API_KEY`
+- Amadeus credentials
+
+The current dashboard workflow does not need those keys.
+
+### Local dashboard config example
+
+The dashboard installer will generate or normalize:
+
+```yaml
+origin_airports:
+  - YVR
+  - YXX
+destination_scope: United States and Canada
+top_n: 10
+interval_hours: 1
+notes: web search only; no paid API; no browser automation
+model: gpt-5.4
+reasoning_effort: medium
+```
+
+## Testing
+
+The dashboard-related regression suite currently focuses on:
+
+- API behavior
+- read-only mode
+- manual search trigger behavior
+- local search aggregation
+- multi-origin execution
+
+Typical command:
+
+```bash
+./.venv_gui/bin/python -m pytest -q -s tests/test_api.py tests/test_local_search.py
+```
+
+## Troubleshooting
+
+### The board still looks stale after `git pull`
+
+First restart the server:
+
+```bash
+python3 scripts/install_gui.py
+python3 scripts/launch_gui.py --public --host 0.0.0.0 --port 8000
+```
+
+Then hard-refresh the browser.
+
+The GUI now uses cache-busting asset versions and `no-store` responses for the dashboard endpoints, so stale browser state should be much less likely.
+
+### The board shows 10 slots but only some real fares
+
+That means the frontend is working correctly.
+
+If fewer than 10 verified findings were returned for that run, the remaining slots are intentionally rendered as placeholders.
+
+### `YXX` does not appear in the board
+
+Check the latest run log in:
+
+- `data/state/local_web_search_runs.jsonl`
+
+Recent runtime evidence should show:
+
+- `searched_origins: ["YVR", "YXX"]`
+
+If the board still does not show `YXX`, the usual causes are:
+
+- the server process was not restarted after pulling new code
+- the board is still showing an older run
+- the browser is still showing stale state
+
+### `codex` cannot be found
+
+Set `CODEX_BIN` explicitly:
+
+```bash
+export CODEX_BIN=/absolute/path/to/codex
+```
+
+## Development Notes
+
+When changing the dashboard behavior, keep these product constraints in mind:
+
+- the GUI is a display board first
+- local search is the primary workflow
+- public mode must remain read-only except for the manual `Start search` action
+- dashboard output should remain stable and visually predictable
+- origin scope must stay explicit and visible
+
+## License / Ownership
+
+No separate license file is included in the current repository snapshot. Confirm usage and ownership rules with the project owner before redistribution.

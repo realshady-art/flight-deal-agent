@@ -44,8 +44,12 @@ const AIRPORT_LABELS = {
 };
 
 async function fetchJson(url, options = {}) {
-  const resp = await fetch(url, {
+  const finalUrl = options.method
+    ? url
+    : `${url}${url.includes("?") ? "&" : "?"}_ts=${Date.now()}`;
+  const resp = await fetch(finalUrl, {
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
     ...options,
   });
   if (!resp.ok) {

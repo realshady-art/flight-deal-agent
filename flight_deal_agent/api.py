@@ -6,7 +6,7 @@ import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -35,6 +35,8 @@ _config_path: Optional[Path] = None
 _regions_dir: Optional[Path] = None
 _scheduler: Any = None  # set at startup
 _local_search_scheduler: Optional[LocalWebSearchScheduler] = None
+
+NO_STORE_HEADERS = {"Cache-Control": "no-store"}
 
 
 class StatusResponse(BaseModel):
@@ -126,21 +128,22 @@ def _db_path() -> Path:
 
 @app.get("/")
 def gui_index() -> FileResponse:
-    return FileResponse(WEB_DIR / "index.html")
+    return FileResponse(WEB_DIR / "index.html", headers=NO_STORE_HEADERS)
 
 
 @app.get("/app.css")
 def gui_css() -> FileResponse:
-    return FileResponse(WEB_DIR / "app.css", media_type="text/css")
+    return FileResponse(WEB_DIR / "app.css", media_type="text/css", headers=NO_STORE_HEADERS)
 
 
 @app.get("/app.js")
 def gui_js() -> FileResponse:
-    return FileResponse(WEB_DIR / "app.js", media_type="application/javascript")
+    return FileResponse(WEB_DIR / "app.js", media_type="application/javascript", headers=NO_STORE_HEADERS)
 
 
 @app.get("/api/health", response_model=StatusResponse)
-def health() -> Dict[str, Any]:
+def health(response: Response) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
     running = _scheduler.is_running if _scheduler else False
     return {"status": "ok", "scheduler_running": running}
 
@@ -216,7 +219,8 @@ def get_config() -> Dict[str, Any]:
 
 
 @app.get("/api/gui/bootstrap")
-def gui_bootstrap() -> Dict[str, Any]:
+def gui_bootstrap(response: Response) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
     cfg = load_local_search_config(_local_search_config_path())
     codex_ok = True
     codex_error = None
@@ -298,7 +302,8 @@ def run_local_agent_from_dashboard() -> Dict[str, Any]:
 
 
 @app.get("/api/local/runs")
-def recent_local_runs(limit: int = 10) -> List[Dict[str, Any]]:
+def recent_local_runs(response: Response, limit: int = 10) -> List[Dict[str, Any]]:
+    response.headers["Cache-Control"] = "no-store"
     return read_recent_local_runs(_local_search_log_path(), limit=limit)
 
 
@@ -321,6 +326,7 @@ def local_scheduler_stop() -> Dict[str, Any]:
 
 
 @app.get("/api/local/scheduler/status")
-def local_scheduler_status() -> Dict[str, Any]:
+def local_scheduler_status(response: Response) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = "no-store"
     running = _local_search_scheduler.is_running if _local_search_scheduler else False
     return {"running": running}

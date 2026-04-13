@@ -70,18 +70,32 @@ def test_scheduler_status(client: TestClient):
 def test_root_serves_gui(client: TestClient):
     resp = client.get("/")
     assert resp.status_code == 200
+    assert resp.headers["cache-control"] == "no-store"
     assert "hourly low-fare" in resp.text
 
 
 def test_gui_bootstrap(client: TestClient):
     resp = client.get("/api/gui/bootstrap")
     assert resp.status_code == 200
+    assert resp.headers["cache-control"] == "no-store"
     body = resp.json()
     assert body["config"]["origin_airports"] == ["YVR", "YXX"]
     assert body["config"]["top_n"] == 10
     assert body["paths"]["config"].endswith("local_web_search.yaml")
     assert "host" in body["codex"]
     assert "runner" in body["paths"]
+
+
+def test_static_assets_are_not_cached(client: TestClient):
+    css = client.get("/app.css")
+    js = client.get("/app.js")
+    scheduler = client.get("/api/local/scheduler/status")
+    assert css.status_code == 200
+    assert js.status_code == 200
+    assert scheduler.status_code == 200
+    assert css.headers["cache-control"] == "no-store"
+    assert js.headers["cache-control"] == "no-store"
+    assert scheduler.headers["cache-control"] == "no-store"
 
 
 def test_setup_writes_local_search_config(client: TestClient, tmp_config: Path):

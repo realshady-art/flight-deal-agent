@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>flight-deal-agent control room</title>
+    <title>flight-deal-agent board</title>
     <link rel="stylesheet" href="/app.css">
   </head>
   <body>
@@ -11,103 +11,83 @@
     <main class="shell">
       <section class="hero">
         <div>
-          <p class="eyebrow">Local Flight Monitor</p>
-          <h1>flight-deal-agent<br>control room</h1>
+          <p class="eyebrow">Server-side Flight Board</p>
+          <h1>hourly low-fare<br>display board</h1>
           <p class="lede">
-            Install once, point it at your local Codex runtime once, then run low-fare scans
-            without touching `.env` or any paid flight API.
+            This page is now a read-only view. The server host runs the Codex web-search job,
+            refreshes hourly, and publishes the current best 10 routes from YVR to the configured scope.
           </p>
         </div>
         <div class="hero-card">
-          <div class="metric-label">Runtime</div>
+          <div class="metric-label">Server runtime</div>
           <div id="healthValue" class="metric-value">Loading</div>
-          <div id="schedulerValue" class="metric-subtle">Checking scheduler</div>
+          <div id="schedulerValue" class="metric-subtle">Checking hourly worker</div>
+          <div id="boardHeadline" class="metric-note">Waiting for the latest search run…</div>
         </div>
       </section>
 
       <section class="grid">
-        <article class="panel setup-panel">
+        <article class="panel overview-panel">
           <div class="panel-header">
             <div>
-              <p class="eyebrow">Setup Wizard</p>
-              <h2>Provider + schedule</h2>
-            </div>
-            <button id="saveSetupBtn" class="button button-primary">Save setup</button>
-          </div>
-
-          <form id="setupForm" class="form-grid">
-            <label>
-              <span>Origin airport</span>
-              <input name="origin_airport" id="origin_airport" placeholder="YVR">
-            </label>
-            <label>
-              <span>Destination scope</span>
-              <input name="destination_scope" id="destination_scope" placeholder="美国/加拿大">
-            </label>
-            <label>
-              <span>Top N results</span>
-              <input type="number" min="1" name="top_n" id="top_n">
-            </label>
-            <label>
-              <span>Interval hours</span>
-              <input type="number" min="1" name="interval_hours" id="interval_hours">
-            </label>
-            <label class="span-2">
-              <span>Extra notes</span>
-              <input name="notes" id="notes" placeholder="例如：优先看往返，不要只给单程。">
-            </label>
-          </form>
-          <p id="setupStatus" class="status-line">Setup not loaded yet.</p>
-        </article>
-
-        <article class="panel actions-panel">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Controls</p>
-              <h2>Run + scheduler</h2>
+              <p class="eyebrow">Monitor Scope</p>
+              <h2>Current server configuration</h2>
             </div>
           </div>
-          <div class="action-stack">
-            <button id="runNowBtn" class="button button-primary">Search now on server runtime</button>
-            <button id="startSchedulerBtn" class="button">Start hourly scheduler</button>
-            <button id="stopSchedulerBtn" class="button button-ghost">Stop hourly scheduler</button>
-          </div>
-          <div class="facts">
+          <div class="facts fact-grid">
             <div>
               <span class="fact-label">Current server</span>
               <span id="hostName" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">Codex runtime</span>
+              <span id="codexStatus" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">Origin</span>
+              <span id="originValue" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">Destination scope</span>
+              <span id="scopeValue" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">Displayed routes</span>
+              <span id="topNValue" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">Refresh cadence</span>
+              <span id="intervalValue" class="fact-value">-</span>
             </div>
             <div>
               <span class="fact-label">Config path</span>
               <span id="configPath" class="fact-value">-</span>
             </div>
             <div>
-              <span class="fact-label">Prompt template</span>
+              <span class="fact-label">Prompt skill</span>
               <span id="promptPath" class="fact-value">-</span>
             </div>
-            <div>
-              <span class="fact-label">Codex runtime</span>
-              <span id="codexStatus" class="fact-value">-</span>
-            </div>
           </div>
-          <pre id="actionOutput" class="terminal">Waiting for action…</pre>
+          <p id="boardStatus" class="status-line">Board loading…</p>
         </article>
 
-        <article class="panel data-panel">
+        <article class="panel summary-panel">
           <div class="panel-header">
             <div>
-              <p class="eyebrow">Recent Output</p>
-              <h2>Latest query result</h2>
+              <p class="eyebrow">Latest Hour</p>
+              <h2>Current best routes</h2>
             </div>
           </div>
-          <div id="latestRun" class="terminal">No local run yet.</div>
+          <div id="latestMeta" class="summary-strip">Waiting for the latest successful run…</div>
+          <div id="summaryText" class="summary-copy">No summary yet.</div>
+          <div id="findingsGrid" class="findings-grid"></div>
         </article>
 
-        <article class="panel data-panel">
+        <article class="panel history-panel">
           <div class="panel-header">
             <div>
-              <p class="eyebrow">Recent Runs</p>
-              <h2>Terminal history</h2>
+              <p class="eyebrow">Run Log</p>
+              <h2>Recent server runs</h2>
             </div>
           </div>
           <div id="runsList" class="list-card"></div>

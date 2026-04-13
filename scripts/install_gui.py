@@ -8,11 +8,14 @@ import sys
 import venv
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parent.parent
 VENV_DIR = ROOT / ".venv_gui"
 CONFIG_PATH = ROOT / "config" / "config.yaml"
 LOCAL_SEARCH_CONFIG_PATH = ROOT / "config" / "local_web_search.yaml"
+SKILL_SOURCE_DIR = ROOT / "skills" / "flight-hourly-web-search"
 
 
 def run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -71,11 +74,41 @@ def ensure_files() -> None:
         print(f"[install] created {LOCAL_SEARCH_CONFIG_PATH}")
 
 
+def normalize_local_search_config() -> None:
+    raw = {}
+    if LOCAL_SEARCH_CONFIG_PATH.exists():
+        raw = yaml.safe_load(LOCAL_SEARCH_CONFIG_PATH.read_text(encoding="utf-8")) or {}
+    raw["top_n"] = 10
+    raw["interval_hours"] = 1
+    raw.setdefault("origin_airport", "YVR")
+    raw.setdefault("destination_scope", "美国/加拿大")
+    raw.setdefault("notes", "只用 web search，不用付费 API，不用浏览器自动化。")
+    raw.setdefault("model", "gpt-5.4")
+    raw.setdefault("reasoning_effort", "medium")
+    LOCAL_SEARCH_CONFIG_PATH.write_text(
+        yaml.safe_dump(raw, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    print(f"[install] normalized {LOCAL_SEARCH_CONFIG_PATH} to hourly Top 10 dashboard mode")
+
+
+def install_skill() -> None:
+    codex_home = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex"))
+    skill_target = codex_home / "skills" / "flight-hourly-web-search"
+    skill_target.parent.mkdir(parents=True, exist_ok=True)
+    if skill_target.exists():
+        shutil.rmtree(skill_target)
+    shutil.copytree(SKILL_SOURCE_DIR, skill_target)
+    print(f"[install] installed skill at {skill_target}")
+
+
 def main() -> int:
     ensure_venv()
     python_bin = venv_python()
     install_requirements(python_bin)
     ensure_files()
+    normalize_local_search_config()
+    install_skill()
     print("")
     print("[install] GUI runtime is ready.")
     print(f"[install] Next: {python_bin} scripts/launch_gui.py")

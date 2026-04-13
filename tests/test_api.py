@@ -68,7 +68,7 @@ def test_scheduler_status(client: TestClient):
 def test_root_serves_gui(client: TestClient):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert "flight-deal-agent control room" in resp.text
+    assert "hourly low-fare" in resp.text
 
 
 def test_gui_bootstrap(client: TestClient):
@@ -77,6 +77,7 @@ def test_gui_bootstrap(client: TestClient):
     body = resp.json()
     assert body["config"]["origin_airport"] == "YVR"
     assert body["paths"]["config"].endswith("local_web_search.yaml")
+    assert "host" in body["codex"]
     assert "runner" in body["paths"]
 
 

@@ -101,6 +101,13 @@ def configure(config_path: Path, regions_dir: Path, scheduler: Any) -> None:
     )
 
 
+def ensure_local_search_runtime_started() -> None:
+    if _local_search_scheduler is None:
+        return
+    _local_search_scheduler.start()
+    _local_search_scheduler.ensure_fresh_results()
+
+
 def _db_path() -> Path:
     assert _config_path is not None
     cfg = load_app_config(_config_path)

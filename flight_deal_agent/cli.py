@@ -34,7 +34,7 @@ def cmd_run_once(args: argparse.Namespace) -> None:
 def cmd_serve(args: argparse.Namespace) -> None:
     import uvicorn
 
-    from flight_deal_agent.api import app, configure
+    from flight_deal_agent.api import app, configure, ensure_local_search_runtime_started
     from flight_deal_agent.scheduler import FlightDealScheduler
     from flight_deal_agent.settings import load_app_config
 
@@ -46,6 +46,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         interval_minutes=config.scheduler.interval_minutes,
     )
     configure(args.config, args.regions_dir, sched)
+    ensure_local_search_runtime_started()
 
     if not args.no_scheduler:
         sched.start()

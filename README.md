@@ -105,7 +105,7 @@ python -m flight_deal_agent serve
 
 **5. 本地 GUI 安装（推荐给非开发用户）**
 
-如果你希望用户下载后，先跑一个安装器，再通过图形界面完成本地 `Codex web-search` 配置和调度设置，用这两步：
+如果你希望用户下载后，先跑一个安装器，再通过图形界面查看服务器每小时拉回来的低价航线结果，用这两步：
 
 ```bash
 python3 scripts/install_gui.py
@@ -119,17 +119,18 @@ http://127.0.0.1:8000
 ```
 
 GUI 当前支持：
-- 保存本地 `Codex web-search` 查询配置
-- 修改出发地、目的地范围、Top N、查询附加说明、小时级调度间隔
-- 手动触发一轮本地查询
-- 启停本地 hourly scheduler
-- 查看 recent terminal runs / 最近一次查询输出
+- 展示服务器当前的 `Codex web-search` 运行状态
+- 展示最近一次 successful run 的 Top 10 结果
+- 展示 recent runs / 最近一次查询输出
+- 服务启动后自动拉起 hourly scheduler
+- 启动时如果结果过期，会先补一轮 immediate search 再展示
 
 适用边界：
-- 这是本地单机 GUI，不是多用户后台
+- 这是只读 display board，不是调参控制台
 - 第一次仍然需要机器本身有 `python3`
-- GUI 会把配置写回 `config/local_web_search.yaml`
+- flight monitor 配置仍然在 `config/local_web_search.yaml`
 - 当前这条 GUI **不依赖付费航班 API key**，默认走本地 `codex exec + web search`
+- 搜索逻辑已经收进 `flight-hourly-web-search` skill，并在安装时同步到本机 `CODEX_HOME`
 
 如果你要的是“任何人打开同一个界面，但请求都固定跑在某一台服务器 / agent 主机的本地 Codex”，不要让每个人各自本地启动 GUI。正确做法是：
 
@@ -145,8 +146,8 @@ http://<这台服务器或 agent 主机的 IP>:8000
 ```
 
 这时：
-- `Run now` 调用的是**启动 GUI 的那台主机本地** `codex exec`
-- hourly scheduler 也跑在**这台主机**
+- hourly search 跑在**启动 GUI 的那台主机本地** `codex exec`
+- scheduler 也跑在**这台主机**
 - 客户端机器只是在访问网页，不会执行本地查询
 
 **6. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**

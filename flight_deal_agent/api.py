@@ -1,6 +1,7 @@
 """FastAPI application with local GUI and setup helpers."""
 from __future__ import annotations
 
+import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -213,6 +214,7 @@ def gui_bootstrap() -> Dict[str, Any]:
             "available": codex_ok,
             "path": codex_path,
             "error": codex_error,
+            "host": socket.gethostname(),
         },
         "paths": {
             "config": str(_local_search_config_path()),

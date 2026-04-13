@@ -62,12 +62,13 @@ async function refreshDashboard() {
 
   setText("healthValue", bootstrap.codex.available ? "READY" : "BLOCKED");
   setText("schedulerValue", scheduler.running ? "Hourly scheduler running" : "Hourly scheduler stopped");
+  setText("hostName", bootstrap.codex.host || "unknown");
   setText("configPath", bootstrap.paths.config);
   setText("promptPath", bootstrap.paths.prompt_template);
   setText(
     "codexStatus",
     bootstrap.codex.available
-      ? `codex ok · ${bootstrap.codex.path}`
+      ? `local codex exec · ${bootstrap.codex.path}`
       : `codex missing · ${bootstrap.codex.error}`,
   );
 
@@ -78,7 +79,7 @@ async function refreshDashboard() {
   document.getElementById("notes").value = state.config.notes || "";
 
   renderRuns(bootstrap.recent_runs || []);
-  setText("setupStatus", "GUI now drives the local Codex web-search flow only. No API key is required.");
+  setText("setupStatus", "GUI now drives only the local Codex web-search flow on this machine. No API key is required.");
 }
 
 async function saveSetup() {
@@ -124,7 +125,7 @@ document.getElementById("saveSetupBtn").addEventListener("click", async (event) 
   }
 });
 
-document.getElementById("runNowBtn").addEventListener("click", () => runAction("/api/local/run", "Running local Codex search"));
+document.getElementById("runNowBtn").addEventListener("click", () => runAction("/api/local/run", "Running immediate search on this machine"));
 document.getElementById("startSchedulerBtn").addEventListener("click", () => runAction("/api/local/scheduler/start", "Starting hourly scheduler"));
 document.getElementById("stopSchedulerBtn").addEventListener("click", () => runAction("/api/local/scheduler/stop", "Stopping hourly scheduler"));
 

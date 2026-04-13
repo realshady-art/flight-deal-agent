@@ -2,7 +2,6 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from dotenv import dotenv_values
 
 from flight_deal_agent.api import app, configure
 from flight_deal_agent.scheduler import FlightDealScheduler
@@ -76,33 +75,27 @@ def test_gui_bootstrap(client: TestClient):
     resp = client.get("/api/gui/bootstrap")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["config"]["origin_airports"] == ["BOS"]
-    assert "stub" in body["provider_options"]
-    assert body["paths"]["config"].endswith("config.yaml")
+    assert body["config"]["origin_airport"] == "YVR"
+    assert body["paths"]["config"].endswith("local_web_search.yaml")
+    assert "runner" in body["paths"]
 
 
-def test_setup_writes_config_and_env(client: TestClient, tmp_config: Path):
+def test_setup_writes_local_search_config(client: TestClient, tmp_config: Path):
     resp = client.post(
         "/api/setup",
         json={
-            "provider": "searchapi",
-            "searchapi_api_key": "abc123",
-            "origin_airports": ["YVR"],
-            "target_region_id": "test_region",
-            "timezone": "America/Vancouver",
-            "currency": "USD",
-            "lowest_n_per_run": 5,
-            "request_budget_per_run": 12,
+            "origin_airport": "SEA",
+            "destination_scope": "美国西海岸",
+            "top_n": 3,
             "interval_hours": 2,
-            "interval_minutes": None,
-            "gl": "us",
-            "hl": "en",
+            "notes": "优先看周末短途。",
+            "model": "gpt-5.4",
+            "reasoning_effort": "medium",
         },
     )
     assert resp.status_code == 200
-    cfg = load_app_config(tmp_config)
-    assert cfg.collector.provider == "searchapi"
-    assert cfg.origin_airports == ["YVR"]
-    assert cfg.scheduler.interval_hours == 2
-    env_path = tmp_config.parent / ".env"
-    assert dotenv_values(env_path)["SEARCHAPI_API_KEY"] == "abc123"
+    config_path = tmp_config.parent / "config" / "local_web_search.yaml"
+    assert config_path.exists()
+    text = config_path.read_text(encoding="utf-8")
+    assert "origin_airport: SEA" in text
+    assert "destination_scope: 美国西海岸" in text

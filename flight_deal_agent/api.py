@@ -1,16 +1,23 @@
 """FastAPI application with local GUI and setup helpers."""
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
-import yaml
-from dotenv import dotenv_values
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
+from flight_deal_agent.local_search import (
+    DEFAULT_LOCAL_SEARCH_CONFIG,
+    LocalSearchRun,
+    LocalWebSearchConfig,
+    LocalWebSearchScheduler,
+    load_local_search_config,
+    read_recent_local_runs,
+    run_local_web_search,
+    save_local_search_config,
+)
 from flight_deal_agent.settings import load_app_config
 from flight_deal_agent.storage import (
     get_recent_deals,
@@ -21,44 +28,11 @@ from flight_deal_agent.storage import (
 
 app = FastAPI(title="flight-deal-agent", version="0.2.1")
 WEB_DIR = Path(__file__).parent / "web"
-DEFAULT_SETUP_CONFIG: Dict[str, Any] = {
-    "app": {"name": "flight-deal-agent", "timezone": "America/Vancouver"},
-    "origin_airports": ["YVR"],
-    "target_region_id": "us_ca_all_scheduled",
-    "trip": {
-        "type": "round_trip",
-        "date_window": {
-            "min_days_ahead": 7,
-            "max_days_ahead": 60,
-            "min_trip_nights": 2,
-            "max_trip_nights": 10,
-            "sample_every_n_days": 3,
-            "trip_night_samples": [2, 3, 4, 5, 7],
-        },
-    },
-    "currency": "USD",
-    "collector": {"provider": "searchapi", "request_budget_per_run": 30},
-    "amadeus": {"test_mode": True},
-    "searchapi": {"gl": "us", "hl": "en"},
-    "storage": {"sqlite_path": "data/state/quotes.db"},
-    "alerts": {
-        "channel": "stdout",
-        "digest_interval_hours": 6,
-        "cooldown_hours": 24,
-        "renotify_price_drop_pct": 8,
-    },
-    "thresholds": {
-        "max_total_price": None,
-        "below_median_pct": None,
-        "lowest_n_per_run": 5,
-    },
-    "scheduler": {"interval_hours": 1, "interval_minutes": None},
-    "api": {"host": "127.0.0.1", "port": 8000},
-}
 
 _config_path: Optional[Path] = None
 _regions_dir: Optional[Path] = None
 _scheduler: Any = None  # set at startup
+_local_search_scheduler: Optional[LocalWebSearchScheduler] = None
 
 
 class StatusResponse(BaseModel):
@@ -75,37 +49,11 @@ class RunResponse(BaseModel):
     errors: List[str]
 
 
-class SetupRequest(BaseModel):
-    provider: Literal["searchapi", "amadeus", "stub"] = "searchapi"
-    searchapi_api_key: str = ""
-    amadeus_client_id: str = ""
-    amadeus_client_secret: str = ""
-    amadeus_test_mode: bool = True
-    origin_airports: List[str] = Field(default_factory=lambda: ["YVR"])
-    target_region_id: str = "us_ca_all_scheduled"
-    timezone: str = "America/Vancouver"
-    currency: str = "USD"
-    gl: str = "us"
-    hl: str = "en"
-    request_budget_per_run: int = 30
-    lowest_n_per_run: int = 5
-    max_total_price: Optional[float] = None
-    below_median_pct: Optional[float] = None
-    interval_hours: int = 1
-    interval_minutes: Optional[int] = None
-    min_days_ahead: int = 7
-    max_days_ahead: int = 60
-    min_trip_nights: int = 2
-    max_trip_nights: int = 10
-    sample_every_n_days: int = 3
-    trip_night_samples: List[int] = Field(default_factory=lambda: [2, 3, 4, 5, 7])
-
-
 class SetupResponse(BaseModel):
     status: str
     config_path: str
-    env_path: str
     scheduler_interval: str
+    log_path: str
 
 
 def _project_root() -> Path:
@@ -115,99 +63,41 @@ def _project_root() -> Path:
     return _config_path.parent
 
 
-def _env_path() -> Path:
-    return _project_root() / ".env"
+def _local_search_config_path() -> Path:
+    return _project_root() / "config" / "local_web_search.yaml"
 
 
-def _region_summaries() -> List[Dict[str, Any]]:
-    if _regions_dir is None:
-        return []
-    items: List[Dict[str, Any]] = []
-    for path in sorted(_regions_dir.glob("*.yaml")):
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        airports = data.get("airports") or []
-        items.append(
-            {
-                "id": path.stem,
-                "label": data.get("label", path.stem),
-                "airport_count": len(airports),
-            }
-        )
-    return items
+def _local_search_log_path() -> Path:
+    return _project_root() / "data" / "state" / "local_web_search_runs.jsonl"
 
 
-def _write_env_values(path: Path, values: Dict[str, str]) -> None:
-    current = {
-        key: value
-        for key, value in dotenv_values(path).items()
-        if value is not None
-    } if path.exists() else {}
-    current.update(values)
-    lines = [f"{key}={value}" for key, value in sorted(current.items()) if value != ""]
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+def _local_search_template_path() -> Path:
+    return _project_root() / "scripts" / "hourly_flight_web_search_terminal_prompt.txt"
 
 
-def _build_config_payload(req: SetupRequest) -> Dict[str, Any]:
-    data = deepcopy(DEFAULT_SETUP_CONFIG)
-    data["app"]["timezone"] = req.timezone
-    data["origin_airports"] = req.origin_airports
-    data["target_region_id"] = req.target_region_id
-    data["currency"] = req.currency
-    data["collector"]["provider"] = req.provider
-    data["collector"]["request_budget_per_run"] = req.request_budget_per_run
-    data["searchapi"]["gl"] = req.gl
-    data["searchapi"]["hl"] = req.hl
-    data["amadeus"]["test_mode"] = req.amadeus_test_mode
-    data["thresholds"]["lowest_n_per_run"] = req.lowest_n_per_run
-    data["thresholds"]["max_total_price"] = req.max_total_price
-    data["thresholds"]["below_median_pct"] = req.below_median_pct
-    data["scheduler"]["interval_hours"] = req.interval_hours
-    data["scheduler"]["interval_minutes"] = req.interval_minutes
-    data["trip"]["date_window"]["min_days_ahead"] = req.min_days_ahead
-    data["trip"]["date_window"]["max_days_ahead"] = req.max_days_ahead
-    data["trip"]["date_window"]["min_trip_nights"] = req.min_trip_nights
-    data["trip"]["date_window"]["max_trip_nights"] = req.max_trip_nights
-    data["trip"]["date_window"]["sample_every_n_days"] = req.sample_every_n_days
-    data["trip"]["date_window"]["trip_night_samples"] = req.trip_night_samples
-    return data
-
-
-def _apply_setup(req: SetupRequest) -> SetupResponse:
-    if _config_path is None:
-        raise HTTPException(500, "Not configured")
-    config_data = _build_config_payload(req)
-    _config_path.parent.mkdir(parents=True, exist_ok=True)
-    _config_path.write_text(
-        yaml.safe_dump(config_data, sort_keys=False, allow_unicode=True),
-        encoding="utf-8",
-    )
-    _write_env_values(
-        _env_path(),
-        {
-            "SEARCHAPI_API_KEY": req.searchapi_api_key.strip(),
-            "AMADEUS_CLIENT_ID": req.amadeus_client_id.strip(),
-            "AMADEUS_CLIENT_SECRET": req.amadeus_client_secret.strip(),
-        },
-    )
-    if _scheduler is not None:
-        _scheduler.reconfigure(
-            interval_hours=req.interval_hours,
-            interval_minutes=req.interval_minutes,
-        )
-    cfg = load_app_config(_config_path)
+def _apply_setup(req: LocalWebSearchConfig) -> SetupResponse:
+    save_local_search_config(_local_search_config_path(), req)
+    if _local_search_scheduler is not None:
+        _local_search_scheduler.reconfigure()
     return SetupResponse(
         status="saved",
-        config_path=str(_config_path),
-        env_path=str(_env_path()),
-        scheduler_interval=cfg.scheduler.label,
+        config_path=str(_local_search_config_path()),
+        scheduler_interval=f"{req.interval_hours}h",
+        log_path=str(_local_search_log_path()),
     )
 
 
 def configure(config_path: Path, regions_dir: Path, scheduler: Any) -> None:
-    global _config_path, _regions_dir, _scheduler
+    global _config_path, _regions_dir, _scheduler, _local_search_scheduler
     _config_path = config_path
     _regions_dir = regions_dir
     _scheduler = scheduler
+    _local_search_scheduler = LocalWebSearchScheduler(
+        workdir=_project_root(),
+        config_path=_local_search_config_path(),
+        template_path=_local_search_template_path(),
+        log_path=_local_search_log_path(),
+    )
 
 
 def _db_path() -> Path:
@@ -306,24 +196,81 @@ def get_config() -> Dict[str, Any]:
 
 @app.get("/api/gui/bootstrap")
 def gui_bootstrap() -> Dict[str, Any]:
-    config = get_config()
-    env_values = dotenv_values(_env_path()) if _env_path().exists() else {}
+    cfg = load_local_search_config(_local_search_config_path())
+    codex_ok = True
+    codex_error = None
+    try:
+        from flight_deal_agent.local_search import resolve_codex_bin
+        codex_path = resolve_codex_bin()
+    except Exception as exc:  # noqa: BLE001
+        codex_ok = False
+        codex_path = None
+        codex_error = str(exc)
     return {
-        "config": config,
-        "regions": _region_summaries(),
-        "provider_options": ["searchapi", "amadeus", "stub"],
-        "secret_status": {
-            "searchapi_api_key_set": bool(env_values.get("SEARCHAPI_API_KEY")),
-            "amadeus_client_id_set": bool(env_values.get("AMADEUS_CLIENT_ID")),
-            "amadeus_client_secret_set": bool(env_values.get("AMADEUS_CLIENT_SECRET")),
+        "config": cfg.model_dump(),
+        "defaults": DEFAULT_LOCAL_SEARCH_CONFIG,
+        "codex": {
+            "available": codex_ok,
+            "path": codex_path,
+            "error": codex_error,
         },
         "paths": {
-            "config": str(_config_path) if _config_path else "",
-            "env": str(_env_path()),
+            "config": str(_local_search_config_path()),
+            "log": str(_local_search_log_path()),
+            "prompt_template": str(_local_search_template_path()),
+            "runner": str(_project_root() / "scripts" / "hourly_flight_web_search_terminal.py"),
         },
+        "recent_runs": read_recent_local_runs(_local_search_log_path(), limit=6),
     }
 
 
 @app.post("/api/setup", response_model=SetupResponse)
-def save_setup(request: SetupRequest) -> SetupResponse:
+def save_setup(request: LocalWebSearchConfig) -> SetupResponse:
     return _apply_setup(request)
+
+
+@app.post("/api/local/run")
+def run_local_agent() -> Dict[str, Any]:
+    try:
+        run = run_local_web_search(
+            workdir=_project_root(),
+            config_path=_local_search_config_path(),
+            template_path=_local_search_template_path(),
+            log_path=_local_search_log_path(),
+        )
+        return run.model_dump(mode="json")
+    except Exception as exc:  # noqa: BLE001
+        recent = read_recent_local_runs(_local_search_log_path(), limit=1)
+        payload = recent[0] if recent else {}
+        return {
+            "status": "error",
+            "error": str(exc),
+            "last_run": payload,
+        }
+
+
+@app.get("/api/local/runs")
+def recent_local_runs(limit: int = 10) -> List[Dict[str, Any]]:
+    return read_recent_local_runs(_local_search_log_path(), limit=limit)
+
+
+@app.post("/api/local/scheduler/start")
+def local_scheduler_start() -> Dict[str, Any]:
+    if _local_search_scheduler is None:
+        raise HTTPException(500, "Local scheduler not configured")
+    _local_search_scheduler.start()
+    return {"status": "started"}
+
+
+@app.post("/api/local/scheduler/stop")
+def local_scheduler_stop() -> Dict[str, Any]:
+    if _local_search_scheduler is None:
+        raise HTTPException(500, "Local scheduler not configured")
+    _local_search_scheduler.stop()
+    return {"status": "stopped"}
+
+
+@app.get("/api/local/scheduler/status")
+def local_scheduler_status() -> Dict[str, Any]:
+    running = _local_search_scheduler.is_running if _local_search_scheduler else False
+    return {"running": running}

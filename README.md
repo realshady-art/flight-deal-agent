@@ -105,7 +105,7 @@ python -m flight_deal_agent serve
 
 **5. 本地 GUI 安装（推荐给非开发用户）**
 
-如果你希望用户下载后，先跑一个安装器，再通过图形界面完成 key / provider / 调度配置，用这两步：
+如果你希望用户下载后，先跑一个安装器，再通过图形界面完成本地 `Codex web-search` 配置和调度设置，用这两步：
 
 ```bash
 python3 scripts/install_gui.py
@@ -119,17 +119,17 @@ http://127.0.0.1:8000
 ```
 
 GUI 当前支持：
-- 保存 `SearchApi / Amadeus / stub` provider 配置
-- 保存 `.env` 里的 API key / secret
-- 修改出发地、目的地区域、Top N、预算、调度间隔
-- 手动触发一轮 run
-- 启停 scheduler
-- 查看 recent deals / recent runs
+- 保存本地 `Codex web-search` 查询配置
+- 修改出发地、目的地范围、Top N、查询附加说明、小时级调度间隔
+- 手动触发一轮本地查询
+- 启停本地 hourly scheduler
+- 查看 recent terminal runs / 最近一次查询输出
 
 适用边界：
 - 这是本地单机 GUI，不是多用户后台
 - 第一次仍然需要机器本身有 `python3`
-- GUI 会把配置写回 `config/config.yaml` 和项目根目录 `.env`
+- GUI 会把配置写回 `config/local_web_search.yaml`
+- 当前这条 GUI **不依赖付费航班 API key**，默认走本地 `codex exec + web search`
 
 **6. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**
 
@@ -305,8 +305,8 @@ flight-deal-agent/
 | GET | `/api/runs` | 运行日志 |
 | POST | `/api/run` | 手动触发一轮 |
 | GET | `/api/config` | 当前配置（脱敏） |
-| GET | `/api/gui/bootstrap` | GUI 初始化数据（region 列表、secret 状态、路径） |
-| POST | `/api/setup` | 保存 `.env` + `config.yaml` |
+| GET | `/api/gui/bootstrap` | GUI 初始化数据（本地查询配置、Codex 状态、路径） |
+| POST | `/api/setup` | 保存 `config/local_web_search.yaml` |
 | GET | `/api/scheduler/status` | 调度器状态 |
 | POST | `/api/scheduler/start` | 启动调度 |
 | POST | `/api/scheduler/stop` | 停止调度 |

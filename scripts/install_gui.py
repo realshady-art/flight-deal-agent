@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 VENV_DIR = ROOT / ".venv_gui"
 CONFIG_PATH = ROOT / "config" / "config.yaml"
-ENV_PATH = ROOT / ".env"
+LOCAL_SEARCH_CONFIG_PATH = ROOT / "config" / "local_web_search.yaml"
 
 
 def run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -63,12 +63,12 @@ def install_requirements(python_bin: Path) -> None:
 
 
 def ensure_files() -> None:
-    if not ENV_PATH.exists():
-        shutil.copy2(ROOT / ".env.example", ENV_PATH)
-        print(f"[install] created {ENV_PATH}")
     if not CONFIG_PATH.exists():
-        shutil.copy2(ROOT / "config" / "config.searchapi.example.yaml", CONFIG_PATH)
+        shutil.copy2(ROOT / "config" / "config.example.yaml", CONFIG_PATH)
         print(f"[install] created {CONFIG_PATH}")
+    if not LOCAL_SEARCH_CONFIG_PATH.exists():
+        shutil.copy2(ROOT / "config" / "local_web_search.example.yaml", LOCAL_SEARCH_CONFIG_PATH)
+        print(f"[install] created {LOCAL_SEARCH_CONFIG_PATH}")
 
 
 def main() -> int:

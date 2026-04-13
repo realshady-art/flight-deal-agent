@@ -2,46 +2,30 @@
 from __future__ import annotations
 
 import os
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 WORKDIR = SCRIPT_DIR.parent
-PROMPT_FILE = Path(
-    os.environ.get(
-        "PROMPT_FILE_OVERRIDE",
-        SCRIPT_DIR / "hourly_flight_web_search_terminal_prompt.txt",
-    )
-)
+if str(WORKDIR) not in sys.path:
+    sys.path.insert(0, str(WORKDIR))
 
+from flight_deal_agent.local_search import run_local_web_search
 
-def resolve_codex_bin() -> str:
-    codex_bin = os.environ.get("CODEX_BIN") or shutil.which("codex")
-    if not codex_bin:
-        raise RuntimeError("Could not find `codex` in PATH. Set CODEX_BIN explicitly.")
-    return codex_bin
+PROMPT_FILE = Path(os.environ.get("PROMPT_FILE_OVERRIDE", SCRIPT_DIR / "hourly_flight_web_search_terminal_prompt.txt"))
+CONFIG_FILE = Path(os.environ.get("LOCAL_WEB_SEARCH_CONFIG", WORKDIR / "config" / "local_web_search.yaml"))
+LOG_FILE = Path(os.environ.get("LOCAL_WEB_SEARCH_LOG", WORKDIR / "data" / "state" / "local_web_search_runs.jsonl"))
 
 
 def main() -> int:
-    prompt = PROMPT_FILE.read_text(encoding="utf-8")
-    cmd = [
-        resolve_codex_bin(),
-        "exec",
-        "-C",
-        str(WORKDIR),
-        "-m",
-        os.environ.get("CODEX_MODEL", "gpt-5.4"),
-        "-s",
-        "workspace-write",
-        "--dangerously-bypass-approvals-and-sandbox",
-        "-c",
-        'model_reasoning_effort="medium"',
-        prompt,
-    ]
-    subprocess.run(cmd, check=True)
+    run = run_local_web_search(
+        workdir=WORKDIR,
+        config_path=CONFIG_FILE,
+        template_path=PROMPT_FILE,
+        log_path=LOG_FILE,
+    )
+    if run.output:
+        print(run.output)
     return 0
 
 

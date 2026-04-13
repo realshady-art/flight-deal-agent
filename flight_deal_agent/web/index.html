@@ -14,8 +14,8 @@
           <p class="eyebrow">Local Flight Monitor</p>
           <h1>flight-deal-agent<br>control room</h1>
           <p class="lede">
-            Install once, fill secrets once, then run scans and monitor recent quotes without
-            touching YAML or `.env` by hand.
+            Install once, point it at your local Codex runtime once, then run low-fare scans
+            without touching `.env` or any paid flight API.
           </p>
         </div>
         <div class="hero-card">
@@ -37,68 +37,24 @@
 
           <form id="setupForm" class="form-grid">
             <label>
-              <span>Provider</span>
-              <select name="provider" id="provider"></select>
+              <span>Origin airport</span>
+              <input name="origin_airport" id="origin_airport" placeholder="YVR">
             </label>
             <label>
-              <span>Origin airports</span>
-              <input name="origin_airports" id="origin_airports" placeholder="YVR">
+              <span>Destination scope</span>
+              <input name="destination_scope" id="destination_scope" placeholder="美国/加拿大">
             </label>
             <label>
-              <span>Destination region</span>
-              <select name="target_region_id" id="target_region_id"></select>
-            </label>
-            <label>
-              <span>Timezone</span>
-              <input name="timezone" id="timezone" placeholder="America/Vancouver">
-            </label>
-            <label>
-              <span>Currency</span>
-              <input name="currency" id="currency" placeholder="USD">
-            </label>
-            <label>
-              <span>Top N per run</span>
-              <input type="number" min="1" name="lowest_n_per_run" id="lowest_n_per_run">
-            </label>
-            <label>
-              <span>Request budget / run</span>
-              <input type="number" min="1" name="request_budget_per_run" id="request_budget_per_run">
+              <span>Top N results</span>
+              <input type="number" min="1" name="top_n" id="top_n">
             </label>
             <label>
               <span>Interval hours</span>
               <input type="number" min="1" name="interval_hours" id="interval_hours">
             </label>
-            <label>
-              <span>Interval minutes (optional)</span>
-              <input type="number" min="1" name="interval_minutes" id="interval_minutes" placeholder="Leave blank to use hours">
-            </label>
-            <label>
-              <span>Max total price</span>
-              <input type="number" min="0" step="0.01" name="max_total_price" id="max_total_price" placeholder="Optional">
-            </label>
-            <label>
-              <span>Drop below median %</span>
-              <input type="number" min="0" step="0.1" name="below_median_pct" id="below_median_pct" placeholder="Optional">
-            </label>
-            <label>
-              <span>SearchApi key</span>
-              <input type="password" name="searchapi_api_key" id="searchapi_api_key" placeholder="Paste only if you want to update it">
-            </label>
-            <label class="provider-amadeus">
-              <span>Amadeus client id</span>
-              <input type="password" name="amadeus_client_id" id="amadeus_client_id">
-            </label>
-            <label class="provider-amadeus">
-              <span>Amadeus client secret</span>
-              <input type="password" name="amadeus_client_secret" id="amadeus_client_secret">
-            </label>
-            <label class="provider-searchapi">
-              <span>SearchApi gl</span>
-              <input name="gl" id="gl" placeholder="us">
-            </label>
-            <label class="provider-searchapi">
-              <span>SearchApi hl</span>
-              <input name="hl" id="hl" placeholder="en">
+            <label class="span-2">
+              <span>Extra notes</span>
+              <input name="notes" id="notes" placeholder="例如：优先看往返，不要只给单程。">
             </label>
           </form>
           <p id="setupStatus" class="status-line">Setup not loaded yet.</p>
@@ -112,9 +68,9 @@
             </div>
           </div>
           <div class="action-stack">
-            <button id="runNowBtn" class="button button-primary">Run now</button>
-            <button id="startSchedulerBtn" class="button">Start scheduler</button>
-            <button id="stopSchedulerBtn" class="button button-ghost">Stop scheduler</button>
+            <button id="runNowBtn" class="button button-primary">Run local Codex search</button>
+            <button id="startSchedulerBtn" class="button">Start hourly scheduler</button>
+            <button id="stopSchedulerBtn" class="button button-ghost">Stop hourly scheduler</button>
           </div>
           <div class="facts">
             <div>
@@ -122,12 +78,12 @@
               <span id="configPath" class="fact-value">-</span>
             </div>
             <div>
-              <span class="fact-label">.env path</span>
-              <span id="envPath" class="fact-value">-</span>
+              <span class="fact-label">Prompt template</span>
+              <span id="promptPath" class="fact-value">-</span>
             </div>
             <div>
-              <span class="fact-label">Secrets</span>
-              <span id="secretStatus" class="fact-value">-</span>
+              <span class="fact-label">Codex runtime</span>
+              <span id="codexStatus" class="fact-value">-</span>
             </div>
           </div>
           <pre id="actionOutput" class="terminal">Waiting for action…</pre>
@@ -137,17 +93,17 @@
           <div class="panel-header">
             <div>
               <p class="eyebrow">Recent Output</p>
-              <h2>Top deals</h2>
+              <h2>Latest query result</h2>
             </div>
           </div>
-          <div id="dealsList" class="list-card"></div>
+          <div id="latestRun" class="terminal">No local run yet.</div>
         </article>
 
         <article class="panel data-panel">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Recent Runs</p>
-              <h2>Execution log</h2>
+              <h2>Terminal history</h2>
             </div>
           </div>
           <div id="runsList" class="list-card"></div>

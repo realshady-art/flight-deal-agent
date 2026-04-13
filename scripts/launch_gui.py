@@ -63,6 +63,7 @@ def main() -> int:
         "-m",
         "flight_deal_agent",
         "serve",
+        "--no-scheduler",
     ]
     return subprocess.call(cmd, cwd=ROOT)
 

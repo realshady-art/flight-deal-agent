@@ -77,13 +77,42 @@ def load_bridge_from_proc() -> dict[str, str]:
     raise RuntimeError("Could not find a running Codex process with chat bridge configuration")
 
 
+def load_bridge_from_ps() -> dict[str, str]:
+    pattern = re.compile(
+        r'mcp_servers\.chat\.args=\["([^"]+)","--agent-id","([^"]+)","--server-url","([^"]+)","--auth-token","([^"]+)"\]'
+    )
+    output = subprocess.check_output(["ps", "-axww", "-o", "pid=,command="], text=True)
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line or "chat-bridge.js" not in line or "mcp_servers.chat.enabled=true" not in line:
+            continue
+        match = pattern.search(line)
+        if match:
+            bridge_path, agent_id, server_url, auth_token = match.groups()
+            return {
+                "CHAT_BRIDGE_PATH": bridge_path,
+                "CHAT_AGENT_ID": agent_id,
+                "CHAT_SERVER_URL": server_url,
+                "CHAT_AUTH_TOKEN": auth_token,
+            }
+    raise RuntimeError("Could not find a running Codex process with chat bridge configuration")
+
+
 def ensure_bridge_env() -> dict[str, str]:
     load_env_file(ENV_FILE)
     keys = ["CHAT_BRIDGE_PATH", "CHAT_AGENT_ID", "CHAT_SERVER_URL", "CHAT_AUTH_TOKEN"]
     values = {key: os.environ.get(key, "") for key in keys}
     if all(values.values()):
         return values
-    discovered = load_bridge_from_proc()
+
+    if os.path.isdir("/proc"):
+        try:
+            discovered = load_bridge_from_proc()
+        except RuntimeError:
+            discovered = load_bridge_from_ps()
+    else:
+        discovered = load_bridge_from_ps()
+
     for key, value in discovered.items():
         os.environ.setdefault(key, value)
     return {key: os.environ[key] for key in keys}

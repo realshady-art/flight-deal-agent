@@ -24,6 +24,13 @@ Given:
 
 Find the best currently visible low-fare options you can verify from public search results.
 
+## Origin coverage rules
+
+- Treat `origin_airports` as a required search set, not a hint.
+- You must actively search across every listed origin airport. Do not silently collapse the job to the first airport only.
+- When public results support it, include at least one credible finding for each listed origin before filling the remaining slots with the globally cheapest options.
+- If one origin genuinely has no useful indexed fares, say that explicitly in the summary instead of pretending it was covered.
+
 ## Ranking logic
 
 1. Prefer lower price.
@@ -67,4 +74,5 @@ The JSON object must match this shape:
 - `price_value` should be numeric when reasonably inferable, otherwise `null`.
 - `destination_airport` should be IATA when clear; otherwise use the city/airport token that is actually visible.
 - `note` should stay short and factual.
+- The summary should briefly mention origin coverage, especially when one origin produced no credible fares.
 - After the JSON block, add a compact Markdown summary suitable for a terminal transcript.

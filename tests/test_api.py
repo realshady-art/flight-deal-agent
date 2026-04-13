@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from dotenv import dotenv_values
 
 from flight_deal_agent.api import app, configure
 from flight_deal_agent.scheduler import FlightDealScheduler
@@ -63,3 +64,45 @@ def test_scheduler_status(client: TestClient):
     resp = client.get("/api/scheduler/status")
     assert resp.status_code == 200
     assert resp.json()["running"] is False
+
+
+def test_root_serves_gui(client: TestClient):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "flight-deal-agent control room" in resp.text
+
+
+def test_gui_bootstrap(client: TestClient):
+    resp = client.get("/api/gui/bootstrap")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["config"]["origin_airports"] == ["BOS"]
+    assert "stub" in body["provider_options"]
+    assert body["paths"]["config"].endswith("config.yaml")
+
+
+def test_setup_writes_config_and_env(client: TestClient, tmp_config: Path):
+    resp = client.post(
+        "/api/setup",
+        json={
+            "provider": "searchapi",
+            "searchapi_api_key": "abc123",
+            "origin_airports": ["YVR"],
+            "target_region_id": "test_region",
+            "timezone": "America/Vancouver",
+            "currency": "USD",
+            "lowest_n_per_run": 5,
+            "request_budget_per_run": 12,
+            "interval_hours": 2,
+            "interval_minutes": None,
+            "gl": "us",
+            "hl": "en",
+        },
+    )
+    assert resp.status_code == 200
+    cfg = load_app_config(tmp_config)
+    assert cfg.collector.provider == "searchapi"
+    assert cfg.origin_airports == ["YVR"]
+    assert cfg.scheduler.interval_hours == 2
+    env_path = tmp_config.parent / ".env"
+    assert dotenv_values(env_path)["SEARCHAPI_API_KEY"] == "abc123"

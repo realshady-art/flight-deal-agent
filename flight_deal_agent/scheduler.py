@@ -70,6 +70,21 @@ class FlightDealScheduler:
             self._scheduler.shutdown(wait=False)
             logger.info("Scheduler stopped")
 
+    def reconfigure(
+        self,
+        *,
+        interval_hours: int,
+        interval_minutes: Optional[int] = None,
+    ) -> None:
+        was_running = self.is_running
+        if was_running:
+            self.stop()
+        self._interval_hours = interval_hours
+        self._interval_minutes = interval_minutes
+        logger.info("Scheduler reconfigured (interval=%s)", self.interval_label)
+        if was_running:
+            self.start()
+
     @property
     def is_running(self) -> bool:
         return bool(self._scheduler and self._scheduler.running)

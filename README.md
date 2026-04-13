@@ -24,7 +24,7 @@
 
 **未完成 / 未接入**
 
-- 前端 UI（仅 REST 预留）。
+- GUI 安装器仍是本地单机版，尚未做成正式桌面安装包（`.dmg` / `.msi`）。
 - Telegram / Email通知（`notifier.py` 仅占位）。
 - 第二数据源、生产环境配额与成本监控、告警运维面板。
 - 与 Clockwork 等外部调度器的正式对接文档（当前可用系统 cron 或自带 `serve` 内调度）。
@@ -46,7 +46,7 @@
 | 通知：stdout | 可用 |
 | 通知：Telegram / Email | 预留接口 |
 | APScheduler 定时调度 | 可用 |
-| FastAPI（未来前端接口） | 可用 |
+| FastAPI + 本地 GUI | 可用 |
 | pytest | 全部通过（移交后请在目标机执行 `pytest -v` 复核） |
 
 ---
@@ -103,7 +103,35 @@ python -m flight_deal_agent serve
 # 也可用系统 cron 每小时：python -m flight_deal_agent run-once -c /path/to/config.yaml
 ```
 
-**5. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**
+**5. 本地 GUI 安装（推荐给非开发用户）**
+
+如果你希望用户下载后，先跑一个安装器，再通过图形界面完成 key / provider / 调度配置，用这两步：
+
+```bash
+python3 scripts/install_gui.py
+python3 scripts/launch_gui.py
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:8000
+```
+
+GUI 当前支持：
+- 保存 `SearchApi / Amadeus / stub` provider 配置
+- 保存 `.env` 里的 API key / secret
+- 修改出发地、目的地区域、Top N、预算、调度间隔
+- 手动触发一轮 run
+- 启停 scheduler
+- 查看 recent deals / recent runs
+
+适用边界：
+- 这是本地单机 GUI，不是多用户后台
+- 第一次仍然需要机器本身有 `python3`
+- GUI 会把配置写回 `config/config.yaml` 和项目根目录 `.env`
+
+**6. 如果你想用系统 cron 定时发聊天提醒（不用 API / 不用浏览器）**
 
 仓库里带了一套可复用的 Python 入口：
 
@@ -132,7 +160,7 @@ CRON_TZ=America/Vancouver
 0 * * * * /absolute/path/to/flight-deal-agent/scripts/hourly_flight_web_search_reminder.py
 ```
 
-**6. 移交检查清单（建议打勾）**
+**7. 移交检查清单（建议打勾）**
 
 - [ ] `pytest -v` 全绿  
 - [ ] `verify-amadeus` 通过（若使用 Amadeus）  
@@ -208,6 +236,15 @@ python -m flight_deal_agent serve
 # --no-scheduler 仅启动 API 不自动扫
 ```
 
+### 4.1 启动本地 GUI（推荐）
+
+```bash
+python3 scripts/install_gui.py
+python3 scripts/launch_gui.py
+```
+
+启动后浏览器会自动尝试打开 `http://127.0.0.1:8000`。如果没有自动打开，就手动访问这个地址。
+
 ### 5. 跑测试
 
 ```bash
@@ -246,7 +283,11 @@ flight-deal-agent/
 │   ├── analyst.py               # 特价判断规则
 │   ├── notifier.py              # 通知（stdout / 预留）
 │   ├── scheduler.py             # APScheduler 定时
-│   └── api.py                   # FastAPI（前端预留）
+│   ├── api.py                   # FastAPI + GUI setup API
+│   └── web/                     # GUI 静态页面
+├── scripts/
+│   ├── install_gui.py           # 创建 GUI 运行时并装依赖
+│   └── launch_gui.py            # 启动 GUI 并自动开浏览器
 ├── tests/                       # pytest（条数以 pytest收集为准）
 ├── pyproject.toml
 └── README.md
@@ -264,6 +305,8 @@ flight-deal-agent/
 | GET | `/api/runs` | 运行日志 |
 | POST | `/api/run` | 手动触发一轮 |
 | GET | `/api/config` | 当前配置（脱敏） |
+| GET | `/api/gui/bootstrap` | GUI 初始化数据（region 列表、secret 状态、路径） |
+| POST | `/api/setup` | 保存 `.env` + `config.yaml` |
 | GET | `/api/scheduler/status` | 调度器状态 |
 | POST | `/api/scheduler/start` | 启动调度 |
 | POST | `/api/scheduler/stop` | 停止调度 |

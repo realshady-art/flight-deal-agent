@@ -54,7 +54,10 @@ def cmd_serve(args: argparse.Namespace) -> None:
             f"(interval={config.scheduler.label})"
         )
 
-    print(f"[flight-deal-agent] API serving on {config.api.host}:{config.api.port}")
+    print(
+        f"[flight-deal-agent] Control room serving on "
+        f"http://{config.api.host}:{config.api.port}"
+    )
     uvicorn.run(app, host=config.api.host, port=config.api.port, log_level="info")
 
 

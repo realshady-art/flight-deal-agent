@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>flight-deal-agent control room</title>
+    <link rel="stylesheet" href="/app.css">
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Local Flight Monitor</p>
+          <h1>flight-deal-agent<br>control room</h1>
+          <p class="lede">
+            Install once, fill secrets once, then run scans and monitor recent quotes without
+            touching YAML or `.env` by hand.
+          </p>
+        </div>
+        <div class="hero-card">
+          <div class="metric-label">Runtime</div>
+          <div id="healthValue" class="metric-value">Loading</div>
+          <div id="schedulerValue" class="metric-subtle">Checking scheduler</div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel setup-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Setup Wizard</p>
+              <h2>Provider + schedule</h2>
+            </div>
+            <button id="saveSetupBtn" class="button button-primary">Save setup</button>
+          </div>
+
+          <form id="setupForm" class="form-grid">
+            <label>
+              <span>Provider</span>
+              <select name="provider" id="provider"></select>
+            </label>
+            <label>
+              <span>Origin airports</span>
+              <input name="origin_airports" id="origin_airports" placeholder="YVR">
+            </label>
+            <label>
+              <span>Destination region</span>
+              <select name="target_region_id" id="target_region_id"></select>
+            </label>
+            <label>
+              <span>Timezone</span>
+              <input name="timezone" id="timezone" placeholder="America/Vancouver">
+            </label>
+            <label>
+              <span>Currency</span>
+              <input name="currency" id="currency" placeholder="USD">
+            </label>
+            <label>
+              <span>Top N per run</span>
+              <input type="number" min="1" name="lowest_n_per_run" id="lowest_n_per_run">
+            </label>
+            <label>
+              <span>Request budget / run</span>
+              <input type="number" min="1" name="request_budget_per_run" id="request_budget_per_run">
+            </label>
+            <label>
+              <span>Interval hours</span>
+              <input type="number" min="1" name="interval_hours" id="interval_hours">
+            </label>
+            <label>
+              <span>Interval minutes (optional)</span>
+              <input type="number" min="1" name="interval_minutes" id="interval_minutes" placeholder="Leave blank to use hours">
+            </label>
+            <label>
+              <span>Max total price</span>
+              <input type="number" min="0" step="0.01" name="max_total_price" id="max_total_price" placeholder="Optional">
+            </label>
+            <label>
+              <span>Drop below median %</span>
+              <input type="number" min="0" step="0.1" name="below_median_pct" id="below_median_pct" placeholder="Optional">
+            </label>
+            <label>
+              <span>SearchApi key</span>
+              <input type="password" name="searchapi_api_key" id="searchapi_api_key" placeholder="Paste only if you want to update it">
+            </label>
+            <label class="provider-amadeus">
+              <span>Amadeus client id</span>
+              <input type="password" name="amadeus_client_id" id="amadeus_client_id">
+            </label>
+            <label class="provider-amadeus">
+              <span>Amadeus client secret</span>
+              <input type="password" name="amadeus_client_secret" id="amadeus_client_secret">
+            </label>
+            <label class="provider-searchapi">
+              <span>SearchApi gl</span>
+              <input name="gl" id="gl" placeholder="us">
+            </label>
+            <label class="provider-searchapi">
+              <span>SearchApi hl</span>
+              <input name="hl" id="hl" placeholder="en">
+            </label>
+          </form>
+          <p id="setupStatus" class="status-line">Setup not loaded yet.</p>
+        </article>
+
+        <article class="panel actions-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Controls</p>
+              <h2>Run + scheduler</h2>
+            </div>
+          </div>
+          <div class="action-stack">
+            <button id="runNowBtn" class="button button-primary">Run now</button>
+            <button id="startSchedulerBtn" class="button">Start scheduler</button>
+            <button id="stopSchedulerBtn" class="button button-ghost">Stop scheduler</button>
+          </div>
+          <div class="facts">
+            <div>
+              <span class="fact-label">Config path</span>
+              <span id="configPath" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">.env path</span>
+              <span id="envPath" class="fact-value">-</span>
+            </div>
+            <div>
+              <span class="fact-label">Secrets</span>
+              <span id="secretStatus" class="fact-value">-</span>
+            </div>
+          </div>
+          <pre id="actionOutput" class="terminal">Waiting for action…</pre>
+        </article>
+
+        <article class="panel data-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Recent Output</p>
+              <h2>Top deals</h2>
+            </div>
+          </div>
+          <div id="dealsList" class="list-card"></div>
+        </article>
+
+        <article class="panel data-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Recent Runs</p>
+              <h2>Execution log</h2>
+            </div>
+          </div>
+          <div id="runsList" class="list-card"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

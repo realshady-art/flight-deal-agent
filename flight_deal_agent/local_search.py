@@ -249,6 +249,19 @@ class LocalWebSearchScheduler:
         finally:
             self._job_lock.release()
 
+    def run_now(self) -> LocalSearchRun:
+        if not self._job_lock.acquire(blocking=False):
+            raise RuntimeError("Local search is already running")
+        try:
+            return run_local_web_search(
+                workdir=self._workdir,
+                config_path=self._config_path,
+                template_path=self._template_path,
+                log_path=self._log_path,
+            )
+        finally:
+            self._job_lock.release()
+
     def start(self) -> None:
         if self._scheduler and self._scheduler.running:
             return

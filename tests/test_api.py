@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from flight_deal_agent.api import app, configure
+from flight_deal_agent.local_search import LocalSearchFinding, LocalSearchRun
 from flight_deal_agent.scheduler import FlightDealScheduler
 from flight_deal_agent.settings import load_app_config
 from flight_deal_agent.storage import init_db
@@ -132,3 +134,41 @@ def test_read_only_dashboard_blocks_mutations(
         else:
             resp = client.post(path)
         assert resp.status_code == 403
+
+
+def test_read_only_dashboard_allows_manual_local_search(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("FLIGHT_DEAL_DASHBOARD_READ_ONLY", "1")
+
+    def fake_run_now() -> LocalSearchRun:
+        return LocalSearchRun(
+            run_id="testrun123",
+            started_at=datetime.now(tz=timezone.utc),
+            finished_at=datetime.now(tz=timezone.utc),
+            status="ok",
+            headline="Manual server-side search finished",
+            findings=[
+                LocalSearchFinding(
+                    route="YVR -> YYC",
+                    origin_airport="YVR",
+                    destination_airport="YYC",
+                    price_display="CA$81 round trip",
+                    price_value=81,
+                    currency="CAD",
+                    date_range="Apr 23-28",
+                    source_name="Google Flights",
+                    source_url="https://example.com/yyc",
+                    note="Short-haul fare still stands out.",
+                )
+            ],
+            narrative_summary="YYC is still the cheapest visible fare.",
+        )
+
+    monkeypatch.setattr("flight_deal_agent.api._local_search_scheduler.run_now", fake_run_now)
+    resp = client.post("/api/local/search-now")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["run_id"] == "testrun123"

@@ -1,6 +1,7 @@
 const state = {
   bootstrap: null,
   scheduler: null,
+  manualSearchRunning: false,
 };
 
 async function fetchJson(url, options = {}) {
@@ -17,6 +18,14 @@ async function fetchJson(url, options = {}) {
 
 function setText(id, text) {
   document.getElementById(id).textContent = text;
+}
+
+function setSearchButtonState(running) {
+  state.manualSearchRunning = running;
+  const button = document.getElementById("startSearchButton");
+  if (!button) return;
+  button.disabled = running;
+  button.textContent = running ? "Searching..." : "Start search";
 }
 
 function escapeHtml(value) {
@@ -157,15 +166,37 @@ async function refreshDashboard() {
   setText(
     "boardStatus",
     scheduler.running
-      ? "This board is read-only. The server host refreshes results hourly using its own Codex runtime."
+      ? "This board refreshes hourly on the server host. Use Start search only when you want one extra server-side run for testing."
       : "Server loaded, but the hourly worker is not running.",
   );
+}
+
+async function triggerManualSearch() {
+  if (state.manualSearchRunning) return;
+  setSearchButtonState(true);
+  setText("boardStatus", "Starting one server-side search run...");
+  try {
+    await fetchJson("/api/local/search-now", { method: "POST" });
+    await refreshDashboard();
+    setText("boardStatus", "Manual search completed on the server host.");
+  } catch (error) {
+    setText("boardStatus", `Manual search failed: ${error}`);
+  } finally {
+    setSearchButtonState(false);
+  }
 }
 
 refreshDashboard().catch((error) => {
   setText("boardStatus", `Bootstrap failed: ${error}`);
   setText("healthValue", "ERROR");
   setText("schedulerValue", "See board status");
+});
+
+document.getElementById("startSearchButton")?.addEventListener("click", () => {
+  triggerManualSearch().catch((error) => {
+    setText("boardStatus", `Manual search failed: ${error}`);
+    setSearchButtonState(false);
+  });
 });
 
 window.setInterval(() => {

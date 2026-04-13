@@ -14,8 +14,9 @@
           <p class="eyebrow">Server-side Flight Board</p>
           <h1>hourly low-fare<br>display board</h1>
           <p class="lede">
-            This page is now a read-only view. The server host runs the Codex web-search job,
-            refreshes hourly, and publishes the current best 10 routes from YVR to the configured scope.
+            This page is now a server-hosted display board. The server host runs the Codex web-search job
+            hourly, publishes the current best 10 routes from the configured Vancouver-area origins,
+            and also exposes one manual search trigger for testing.
           </p>
         </div>
         <div class="hero-card">
@@ -77,6 +78,7 @@
               <p class="eyebrow">Latest Hour</p>
               <h2>Current best routes</h2>
             </div>
+            <button id="startSearchButton" class="action-button" type="button">Start search</button>
           </div>
           <div id="latestMeta" class="summary-strip">Waiting for the latest successful run…</div>
           <div id="summaryText" class="summary-copy">No summary yet.</div>

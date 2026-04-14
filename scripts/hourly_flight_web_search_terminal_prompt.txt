@@ -4,6 +4,7 @@ Current run inputs:
 - `origin_airports`: `{origin_airports}`
 - `destination_scope`: `{destination_scope}`
 - `top_n`: `{top_n}`
+- **Travel "today" (cutoff)**: `{today_iso}` — `{today_long}` (all travel dates must be on or after this calendar day in the search timezone).
 
 Extra notes:
 {notes}
@@ -19,3 +20,4 @@ Hard requirements:
 6. Do not send anything to chat. Print the result only to stdout.
 7. You must actively search every airport listed in `origin_airports`; do not collapse the run to only the first origin.
 8. When results exist, try to include at least one credible fare from each origin before filling the rest with the overall cheapest routes.
+9. **Dates**: Only surface round-trip fares that can still be booked for outbound travel **on or after `{today_iso}`**. Ignore expired sales, archive pages, "last month" blog posts, or itineraries whose trip dates are entirely before `{today_iso}`. Prefer stating `date_range` with explicit **YYYY-MM-DD** when the source gives it.

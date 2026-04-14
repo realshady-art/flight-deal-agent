@@ -6,10 +6,11 @@ import re
 import shutil
 import subprocess
 import threading
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import yaml
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -25,10 +26,47 @@ DEFAULT_LOCAL_SEARCH_CONFIG: Dict[str, Any] = {
     "notes": "只用 web search，不用付费 API，不用浏览器自动化。",
     "model": "gpt-5.4",
     "reasoning_effort": "medium",
+    "search_timezone": "America/Vancouver",
 }
 FIXED_DASHBOARD_TOP_N = 10
 
 JSON_BLOCK_RE = re.compile(r"```json\s*(\{.*?\})\s*```", re.DOTALL)
+
+_MONTH_PREFIX = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
+
+# Allow dates glued to letters (e.g. back2026-05-10); disallow extending digits.
+_ISO_DATE_RE = re.compile(r"(?<![0-9])(20\d{2})-(\d{2})-(\d{2})(?![0-9])")
+_ZH_FULL_RE = re.compile(r"\b(20\d{2})年(\d{1,2})月(\d{1,2})日?")
+_ZH_MD_RE = re.compile(r"\b(\d{1,2})月(\d{1,2})日")
+# Apr 23-28 / Apr 23 – 28 (same month)
+_EN_MONTH_RANGE_SAME = re.compile(
+    r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b\s+(\d{1,2})\s*[-–]\s*(\d{1,2})\b",
+    re.IGNORECASE,
+)
+# Apr 28 - May 3
+_EN_MONTH_CROSS = re.compile(
+    r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b\s+(\d{1,2})\s*[-–]\s*"
+    r"(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b\s+(\d{1,2})\b",
+    re.IGNORECASE,
+)
+# Apr 23 (single day mention, avoid matching the first half of ranges handled above)
+_EN_MONTH_DAY = re.compile(
+    r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\b\s+(\d{1,2})\b",
+    re.IGNORECASE,
+)
 
 
 class LocalWebSearchConfig(BaseModel):
@@ -39,6 +77,7 @@ class LocalWebSearchConfig(BaseModel):
     notes: str = "只用 web search，不用付费 API，不用浏览器自动化。"
     model: str = "gpt-5.4"
     reasoning_effort: str = "medium"
+    search_timezone: str = "America/Vancouver"
 
 
 class LocalSearchFinding(BaseModel):
@@ -95,14 +134,133 @@ def save_local_search_config(path: Path, config: LocalWebSearchConfig) -> None:
     )
 
 
+def travel_today_for_config(config: LocalWebSearchConfig) -> date:
+    """Calendar 'today' used for travel-date cutoffs (default Pacific)."""
+    try:
+        tz = ZoneInfo((config.search_timezone or "America/Vancouver").strip())
+    except Exception:
+        tz = ZoneInfo("America/Vancouver")
+    return datetime.now(tz).date()
+
+
 def render_local_search_prompt(template_path: Path, config: LocalWebSearchConfig) -> str:
     template = template_path.read_text(encoding="utf-8")
+    today = travel_today_for_config(config)
+    today_iso = today.isoformat()
+    today_long = today.strftime("%Y-%m-%d (%A)")  # stable, locale-independent
     return template.format(
         origin_airports=", ".join(config.origin_airports),
         destination_scope=config.destination_scope,
         top_n=config.top_n,
         notes=config.notes.strip(),
+        today_iso=today_iso,
+        today_long=today_long,
     )
+
+
+def _month_num(token: str) -> Optional[int]:
+    return _MONTH_PREFIX.get(token.lower()[:3])
+
+
+def _safe_date(y: int, m: int, d: int) -> Optional[date]:
+    try:
+        return date(y, m, d)
+    except ValueError:
+        return None
+
+
+def _collect_finding_date_text(finding: LocalSearchFinding) -> str:
+    parts = [finding.date_range, finding.note, finding.route, finding.price_display]
+    return "\n".join(str(p) for p in parts if p)
+
+
+def _ranges_overlap(a: Tuple[int, int], b: Tuple[int, int]) -> bool:
+    return max(a[0], b[0]) < min(a[1], b[1])
+
+
+def parse_travel_dates_in_text(text: str, *, anchor_year: int) -> List[date]:
+    """Pull candidate travel dates from free text. Month/day without year use anchor_year only."""
+    found: List[date] = []
+    if not text:
+        return found
+
+    for m in _ISO_DATE_RE.finditer(text):
+        d = _safe_date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        if d:
+            found.append(d)
+
+    for m in _ZH_FULL_RE.finditer(text):
+        d = _safe_date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        if d:
+            found.append(d)
+
+    for m in _ZH_MD_RE.finditer(text):
+        d = _safe_date(anchor_year, int(m.group(1)), int(m.group(2)))
+        if d:
+            found.append(d)
+
+    range_spans: List[Tuple[int, int]] = []
+
+    for m in _EN_MONTH_CROSS.finditer(text):
+        range_spans.append((m.start(), m.end()))
+        m1 = _month_num(m.group(1))
+        m2 = _month_num(m.group(3))
+        if not m1 or not m2:
+            continue
+        d_a = _safe_date(anchor_year, m1, int(m.group(2)))
+        d_b = _safe_date(anchor_year, m2, int(m.group(4)))
+        if d_a:
+            found.append(d_a)
+        if d_b:
+            found.append(d_b)
+
+    for m in _EN_MONTH_RANGE_SAME.finditer(text):
+        span = (m.start(), m.end())
+        if any(_ranges_overlap(span, s) for s in range_spans):
+            continue
+        range_spans.append(span)
+        mo = _month_num(m.group(1))
+        if not mo:
+            continue
+        d1 = int(m.group(2))
+        d2 = int(m.group(3))
+        for dom in (d1, d2):
+            d = _safe_date(anchor_year, mo, dom)
+            if d:
+                found.append(d)
+
+    for m in _EN_MONTH_DAY.finditer(text):
+        span = (m.start(), m.end())
+        if any(_ranges_overlap(span, s) for s in range_spans):
+            continue
+        mo = _month_num(m.group(1))
+        if not mo:
+            continue
+        d = _safe_date(anchor_year, mo, int(m.group(2)))
+        if d:
+            found.append(d)
+
+    return found
+
+
+def finding_departure_on_or_after_today(finding: LocalSearchFinding, today: date) -> bool:
+    """
+    True if every parsed travel date is >= today, or if no date could be parsed (model may use vague text).
+    If any parsed date is before today, reject (stale / archive itineraries).
+    """
+    blob = _collect_finding_date_text(finding)
+    dates = parse_travel_dates_in_text(blob, anchor_year=today.year)
+    if not dates:
+        return True
+    return min(dates) >= today
+
+
+def retain_findings_forward_dates(
+    findings: List[LocalSearchFinding],
+    *,
+    today: date,
+) -> List[LocalSearchFinding]:
+    return [f for f in findings if finding_departure_on_or_after_today(f, today)]
 
 
 def resolve_codex_bin() -> str:
@@ -168,13 +326,31 @@ def _execute_codex_prompt(*, workdir: Path, config: LocalWebSearchConfig, prompt
     )
 
 
-def _finding_sort_key(finding: LocalSearchFinding) -> tuple[float, str, str, str]:
-    price = finding.price_value if finding.price_value is not None else float("inf")
+def _numeric_price_for_sort(finding: LocalSearchFinding) -> float:
+    """Prefer structured price_value; else parse first number from price_display for ranking."""
+    if finding.price_value is not None:
+        try:
+            return float(finding.price_value)
+        except (TypeError, ValueError):
+            pass
+    text = (finding.price_display or "").replace(",", "")
+    match = re.search(r"\d+(?:\.\d+)?", text)
+    if match:
+        try:
+            return float(match.group(0))
+        except ValueError:
+            pass
+    return float("inf")
+
+
+def _finding_sort_key(finding: LocalSearchFinding) -> tuple[float, str, str, str, str]:
+    price = _numeric_price_for_sort(finding)
     return (
         price,
-        finding.currency or "",
-        finding.date_range,
-        finding.route,
+        finding.destination_airport or "",
+        finding.origin_airport or "",
+        finding.date_range or "",
+        finding.route or "",
     )
 
 
@@ -240,6 +416,8 @@ def run_local_web_search(
         raw_outputs.append(f"=== {origin} ===\n{output}".strip())
         payload = _extract_json_payload(output)
         findings = _parse_findings(payload)
+        today_local = travel_today_for_config(single_origin_cfg)
+        findings = retain_findings_forward_dates(findings, today=today_local)
         if findings:
             combined_findings.extend(findings)
         else:

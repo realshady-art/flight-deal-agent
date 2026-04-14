@@ -1,9 +1,11 @@
 origin_airports:
   - "YVR"
   - "YXX"
+# 用于判断「今天」的时区；旅行日期不得早于此日历日
+search_timezone: "America/Vancouver"
 destination_scope: "美国/加拿大"
 top_n: 10
 interval_hours: 1
-notes: "只用 web search，不用付费 API，不用浏览器自动化。"
+notes: "只用 web search，不用付费 API，不用浏览器自动化。只收录往返（round trip）含税总价；YVR 与 YXX 分别检索，同目的地以更低总价优先。"
 model: "gpt-5.4"
 reasoning_effort: "medium"

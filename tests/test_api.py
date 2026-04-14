@@ -72,7 +72,7 @@ def test_root_serves_gui(client: TestClient):
     resp = client.get("/")
     assert resp.status_code == 200
     assert resp.headers["cache-control"] == "no-store"
-    assert "hourly low-fare" in resp.text
+    assert "LOWFARE" in resp.text or "机票" in resp.text
 
 
 def test_gui_bootstrap(client: TestClient):

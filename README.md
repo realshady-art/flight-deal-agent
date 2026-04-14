@@ -36,8 +36,9 @@ It now does the following:
 - uses the installed `flight-hourly-web-search` skill
 - searches all configured origin airports, not just one
 - aggregates, deduplicates, sorts, and displays the current Top 10 routes
-- shows route labels as `City (IATA) ↔ City (IATA)`
-- places a visible fare-source link at the top of each real route card
+- **drops findings whose parsed travel dates are entirely before “today”** (see `search_timezone` below), so stale months (e.g. January/March archive posts) do not stay on the board
+- shows route labels as `City (IATA) ↔ City (IATA)` (Chinese city names when mapped)
+- **card layout**: largest text is the route; price and dates in the middle; **round-trip** OTA deep links (Google Flights, Kayak, Skyscanner) plus the original source link at the bottom
 - keeps `Start search` independent from the hourly scheduler
 
 Default dashboard search scope:
@@ -46,6 +47,9 @@ Default dashboard search scope:
 - destination scope: United States and Canada
 - top routes shown: `10`
 - refresh cadence: `1 hour`
+- **date cutoff timezone**: `America/Vancouver` (defines calendar “today” for filtering and for prompt injection)
+
+Ranking merges both origins then sorts primarily by **lowest numeric price** (`price_value`, or the first number parsed from `price_display`), so for the same destination the cheaper airport tends to rank higher.
 
 ## Status Summary
 
@@ -56,6 +60,8 @@ Default dashboard search scope:
 - hourly local search scheduler
 - local `codex exec` search runner
 - multi-origin fan-out across `YVR` and `YXX`
+- forward-date filtering on structured findings (ISO and common CN/EN date patterns)
+- round-trip-only outbound deep links on the board
 - fixed Top 10 board
 - recent run log
 - installer and launcher scripts
@@ -184,6 +190,16 @@ origin_airports:
 
 The local search execution path fans out across both origins and then merges results back into one ranked board.
 
+### Travel date cutoff (`search_timezone`)
+
+The backend uses **`search_timezone`** (IANA name, default `America/Vancouver`) to compute **today’s date**. After each Codex run it parses dates from each finding’s `date_range`, `note`, `route`, and `price_display`. If it finds at least one concrete date and the **earliest** is **before** that local today, the finding is discarded. Findings with no parseable dates are kept (vague text only), but the terminal prompt instructs the model to quote **YYYY-MM-DD** and to avoid archive fares.
+
+Copy `config/local_web_search.example.yaml` if you need a full template including `search_timezone`.
+
+### Board deep links (round trip)
+
+Generated links are **round-trip only** (no one-way Kayak segments). If only one ISO date is known, the return date defaults to **outbound + 7 days** for URL building where needed. The original article URL remains available as “检索来源”.
+
 ## Local Web Search Scripts
 
 ### Terminal-only runner
@@ -292,10 +308,11 @@ The dashboard installer will generate or normalize:
 origin_airports:
   - YVR
   - YXX
+search_timezone: America/Vancouver
 destination_scope: United States and Canada
 top_n: 10
 interval_hours: 1
-notes: web search only; no paid API; no browser automation
+notes: web search only; no paid API; no browser automation; round-trip fares only
 model: gpt-5.4
 reasoning_effort: medium
 ```
@@ -309,6 +326,7 @@ The dashboard-related regression suite currently focuses on:
 - manual search trigger behavior
 - local search aggregation
 - multi-origin execution
+- forward-date filtering on findings
 
 Typical command:
 

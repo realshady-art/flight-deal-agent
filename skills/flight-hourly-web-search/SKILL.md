@@ -40,6 +40,16 @@ Find the best currently visible low-fare options you can verify from public sear
 5. Drop results that have no usable source URL.
 6. Keep searching until you have a credible Top N set when public results support it; do not stop at 3-5 items just because you found a few cheap fares early.
 
+## Destination mix (longer / US-forward)
+
+The board is most useful when it surfaces **longer, transborder value**, not only trips that are cheap because they are very short.
+
+- **Prioritize US destinations** that are **farther from the origin** than the immediate Pacific Northwest / BC–Alberta corridor when public results support it—for example U.S. East Coast, Florida, Texas, the Southwest, Chicago-area hubs, and other **mid-continent or cross-country** markets—provided the fare is still credible and well-sourced.
+- **Deprioritize** filling most of the Top N with **ultra-short hops** whose low price is “normal” (e.g. adjacent Canadian cities, routine YVR/YYC/YYJ/YYF-style short haul, or border-adjacent US airports like BLI unless the deal is clearly exceptional vs. typical pricing).
+- When both a nearby cheap route and a **more distant US** option are verifiable, **prefer including the longer US option** in the list so the user sees variety beyond short-haul defaults.
+- Still obey **origin coverage**: every listed `origin_airport` should get a fair search; this rule only affects **which destinations you emphasize** when ranking and choosing among similarly credible results.
+- If `destination_scope` includes Canada, you may still include standout Canadian long-haul, but **do not let the entire list collapse to only the closest Canadian cities** when US results are available.
+
 ## Output contract
 
 You must output a fenced `json` block first, then a short human-readable summary.

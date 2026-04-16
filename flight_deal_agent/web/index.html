@@ -7,76 +7,75 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/app.css?v=20260410-board2">
+    <link rel="stylesheet" href="/app.css?v=20260411-i18n">
   </head>
   <body>
     <header class="site-header brutal-row">
-      <a class="logo-skew" href="/" aria-label="返回首页">
+      <a class="logo-skew" href="/" data-i18n-aria="logo.aria">
         <span class="logo-skew__inner">LOWFARE</span>
       </a>
-      <nav class="site-nav">
-        <span class="nav-tag">机票 · 航线监控</span>
-        <a class="link-brutal" href="#board">票价看板</a>
-        <a class="link-brutal" href="#runs">检索记录</a>
-      </nav>
+      <div class="site-header__end">
+        <nav class="site-nav" aria-label="Primary">
+          <span class="nav-tag" data-i18n="nav.tag">机票 · 航线监控</span>
+          <a class="link-brutal" href="#board" data-i18n="nav.board">票价看板</a>
+          <a class="link-brutal" href="#runs" data-i18n="nav.runs">检索记录</a>
+        </nav>
+        <div class="lang-switch" role="group" data-i18n-aria="lang.groupAria">
+          <button type="button" class="lang-switch__btn lang-switch__btn--active" id="langZh" data-lang="zh" aria-pressed="true">中文</button>
+          <button type="button" class="lang-switch__btn" id="langEn" data-lang="en" aria-pressed="false">English</button>
+        </div>
+      </div>
     </header>
 
-    <section class="strip strip--yellow" aria-label="产品一句话">
-      <p class="strip__text">
-        我们要盯的是<strong>真实航线与票价线索</strong>：按出发机场与目的地范围，让服务器<strong>定时去网上检索</strong>，
-        把当前能抓到的低价组合排进看板——<strong>以源站价格为准</strong>，这里只做汇总与追溯。
-      </p>
+    <section class="strip strip--yellow" aria-label="Product one-liner">
+      <p class="strip__text" data-i18n-html="strip.text"></p>
     </section>
 
     <main class="page">
       <section class="hero brutal-row">
         <div class="hero__copy">
-          <p class="kicker">机票低价 · 定时检索看板</p>
-          <h1>航线与票价，<br>在一张粗砺看板上摊开。</h1>
-          <p class="lede">
-            后端按配置好的机场与区域，周期性调用 Codex 在网页里查价、摘路线；
-            本页展示<strong>本轮最值得关注的 Top 航线卡片</strong>（含税价展示、出行日期区间、来源链接），并保留每一次检索的运行记录。
-            需要加跑一轮时，点下面按钮即可。
-          </p>
+          <p class="kicker" data-i18n="hero.kicker">机票低价 · 定时检索看板</p>
+          <h1 data-i18n-html="hero.title"></h1>
+          <p class="lede" data-i18n-html="hero.lede"></p>
           <div class="hero__actions">
-            <button id="startSearchButton" class="btn btn--primary" type="button">立即检索票价</button>
-            <a class="btn btn--secondary" href="#board">去看低价卡片</a>
+            <button id="startSearchButton" class="btn btn--primary" type="button" data-i18n="hero.btnSearch">立即检索票价</button>
+            <a class="btn btn--secondary" href="#board" data-i18n="hero.btnBoard">去看低价卡片</a>
           </div>
         </div>
         <aside class="hero__mock brutal-card brutal-card--tilt" aria-hidden="true">
           <div class="mock-top">
-            <span class="mock-hash"># fare-scan</span>
-            <span class="mock-meta" title="本轮槽位">10</span>
+            <span class="mock-hash" data-i18n="mock.hash"># fare-scan</span>
+            <span class="mock-meta" data-i18n-title="mock.metaTitle" title="">10</span>
           </div>
           <div class="mock-body">
-            <div class="mock-line"><span class="pix pix--v"></span> <strong>你</strong> · YVR→LAS 这条含税还成立吗？</div>
-            <div class="mock-line mock-line--bot"><span class="pix pix--a"></span> <strong>检索任务</strong> · 已对比3 个源站，写入本轮 JSONL。</div>
-            <div class="mock-line mock-line--bot"><span class="pix pix--l"></span> <strong>定时器</strong> · 下一整点继续扫低价。</div>
+            <div class="mock-line" data-i18n-html="mock.line1"></div>
+            <div class="mock-line mock-line--bot" data-i18n-html="mock.line2"></div>
+            <div class="mock-line mock-line--bot" data-i18n-html="mock.line3"></div>
           </div>
           <div class="mock-deco" aria-hidden="true"></div>
         </aside>
       </section>
 
       <section class="section-head">
-        <h2>和「随便看看」的机票站有什么不同</h2>
-        <p class="section-sub">三件事：按你的机场/区域配置检索、固定 10 张低价卡位不塌、每次查价都有日志可对账。</p>
+        <h2 data-i18n="section.diff.title">和「随便看看」的机票站有什么不同</h2>
+        <p class="section-sub" data-i18n="section.diff.sub">三件事：按你的机场/区域配置检索、固定 10 张低价卡位不塌、每次查价都有日志可对账。</p>
       </section>
 
       <section class="feature-deck brutal-row">
         <article class="feature-card brutal-card" data-accent="blue">
           <div class="feature-card__icon" aria-hidden="true">1</div>
-          <h3>票价来自检索，不是瞎编</h3>
-          <p>任务在服务器上打开真实网页上下文；卡片里的链接带你回<strong>航空公司 / OTA 源站</strong>复核，下单前务必以源站为准。</p>
+          <h3 data-i18n="feat1.title">票价来自检索，不是瞎编</h3>
+          <p data-i18n-html="feat1.body"></p>
         </article>
         <article class="feature-card brutal-card" data-accent="pink">
           <div class="feature-card__icon" aria-hidden="true">2</div>
-          <h3>10 格低价卡位</h3>
-          <p>再少也占满 10 格，空位会标明「等待本轮索引」，版面永远像一块<strong>航班时刻表墙</strong>。</p>
+          <h3 data-i18n="feat2.title">10 格低价卡位</h3>
+          <p data-i18n-html="feat2.body"></p>
         </article>
         <article class="feature-card brutal-card" data-accent="lime">
           <div class="feature-card__icon" aria-hidden="true">3</div>
-          <h3>随时加跑一次</h3>
-          <p>不等下一个整点，点<strong>立即检索票价</strong>让主机马上再搜一轮，适合改配置后验收。</p>
+          <h3 data-i18n="feat3.title">随时加跑一次</h3>
+          <p data-i18n-html="feat3.body"></p>
         </article>
       </section>
 
@@ -84,73 +83,73 @@
         <article class="panel brutal-card panel--wide">
           <div class="panel__head">
             <div>
-              <p class="kicker">采集管线状态</p>
-              <h2>监控范围与运行环境</h2>
+              <p class="kicker" data-i18n="board.kicker">采集管线状态</p>
+              <h2 data-i18n="board.title">监控范围与运行环境</h2>
             </div>
           </div>
           <div class="facts facts--grid">
             <div class="fact">
-              <span class="fact-label">检索管线</span>
-              <span id="healthValue" class="fact-value fact-value--lg">加载中</span>
-              <span id="schedulerValue" class="fact-hint">检查定时检索</span>
+              <span class="fact-label" data-i18n="board.label.pipeline">检索管线</span>
+              <span id="healthValue" class="fact-value fact-value--lg" data-i18n="common.loading">加载中</span>
+              <span id="schedulerValue" class="fact-hint" data-i18n="board.hint.scheduler">检查定时检索</span>
             </div>
             <div class="fact">
-              <span class="fact-label">本轮摘要标题</span>
-              <span id="boardHeadline" class="fact-value">等待中…</span>
+              <span class="fact-label" data-i18n="board.label.headline">本轮摘要标题</span>
+              <span id="boardHeadline" class="fact-value" data-i18n="board.wait.headline">等待中…</span>
             </div>
             <div class="fact">
-              <span class="fact-label">主机名</span>
+              <span class="fact-label" data-i18n="board.label.host">主机名</span>
               <span id="hostName" class="fact-value">-</span>
             </div>
             <div class="fact">
-              <span class="fact-label">Codex 可执行</span>
+              <span class="fact-label" data-i18n="board.label.codex">Codex 可执行</span>
               <span id="codexStatus" class="fact-value">-</span>
             </div>
             <div class="fact">
-              <span class="fact-label">出发机场</span>
+              <span class="fact-label" data-i18n="board.label.origin">出发机场</span>
               <span id="originValue" class="fact-value">-</span>
             </div>
             <div class="fact">
-              <span class="fact-label">目的地范围</span>
+              <span class="fact-label" data-i18n="board.label.scope">目的地范围</span>
               <span id="scopeValue" class="fact-value">-</span>
             </div>
             <div class="fact">
-              <span class="fact-label">展示航线数</span>
+              <span class="fact-label" data-i18n="board.label.topn">展示航线数</span>
               <span id="topNValue" class="fact-value">-</span>
             </div>
             <div class="fact">
-              <span class="fact-label">定时检索间隔</span>
+              <span class="fact-label" data-i18n="board.label.interval">定时检索间隔</span>
               <span id="intervalValue" class="fact-value">-</span>
             </div>
             <div class="fact fact--span2">
-              <span class="fact-label">配置文件</span>
+              <span class="fact-label" data-i18n="board.label.config">配置文件</span>
               <span id="configPath" class="fact-value fact-value--mono">-</span>
             </div>
             <div class="fact fact--span2">
-              <span class="fact-label">检索用 Skill</span>
+              <span class="fact-label" data-i18n="board.label.skill">检索用 Skill</span>
               <span id="promptPath" class="fact-value fact-value--mono">-</span>
             </div>
           </div>
-          <p id="boardStatus" class="status-bar">看板加载中…</p>
+          <p id="boardStatus" class="status-bar" data-i18n="board.status.loading">看板加载中…</p>
         </article>
 
         <article class="panel brutal-card panel--routes">
           <div class="panel__head">
             <div>
-              <p class="kicker">本轮低价结果</p>
-              <h2>当前最值得看的航线卡片</h2>
+              <p class="kicker" data-i18n="routes.kicker">本轮低价结果</p>
+              <h2 data-i18n="routes.title">当前最值得看的航线卡片</h2>
             </div>
           </div>
-          <div id="latestMeta" class="pill-strip">等待最近一次成功的检索…</div>
-          <div id="summaryText" class="summary-copy">尚无摘要。</div>
+          <div id="latestMeta" class="pill-strip" data-i18n="routes.meta.wait">等待最近一次成功的检索…</div>
+          <div id="summaryText" class="summary-copy" data-i18n="routes.summary.empty">尚无摘要。</div>
           <div id="findingsGrid" class="findings-grid"></div>
         </article>
 
         <article id="runs" class="panel brutal-card panel--runs">
           <div class="panel__head">
             <div>
-              <p class="kicker">检索历史</p>
-              <h2>最近几次「上网查票价」任务</h2>
+              <p class="kicker" data-i18n="runs.kicker">检索历史</p>
+              <h2 data-i18n="runs.title">最近几次「上网查票价」任务</h2>
             </div>
           </div>
           <div id="runsList" class="list-card"></div>
@@ -158,12 +157,12 @@
       </section>
 
       <section class="strip strip--yellow strip--cta">
-        <h2 class="cta__title">下一波低价出现时，看板会替你排好队。</h2>
-        <p class="cta__sub">本地即可启动；所有结构化结果落在服务器 JSONL，方便你对账与复盘。</p>
+        <h2 class="cta__title" data-i18n="cta.title">下一波低价出现时，看板会替你排好队。</h2>
+        <p class="cta__sub" data-i18n="cta.sub">本地即可启动；所有结构化结果落在服务器 JSONL，方便你对账与复盘。</p>
       </section>
     </main>
 
     <div class="grain" aria-hidden="true"></div>
-    <script src="/app.js?v=20260410-board2"></script>
+    <script src="/app.js?v=20260411-i18n"></script>
   </body>
 </html>

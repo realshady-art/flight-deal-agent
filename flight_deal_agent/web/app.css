@@ -76,6 +76,48 @@ a {
   gap: 16px;
 }
 
+.site-header__end {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lang-switch {
+  display: inline-flex;
+  border: var(--border);
+  box-shadow: var(--shadow-sm);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.lang-switch__btn {
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border: none;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  border-right: 2px solid var(--ink);
+}
+
+.lang-switch__btn:last-child {
+  border-right: none;
+}
+
+.lang-switch__btn:hover {
+  background: var(--yellow);
+}
+
+.lang-switch__btn--active {
+  background: var(--pink);
+}
+
 .logo-skew {
   text-decoration: none;
   display: inline-block;

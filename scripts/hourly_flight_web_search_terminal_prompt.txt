@@ -21,3 +21,4 @@ Hard requirements:
 7. You must actively search every airport listed in `origin_airports`; do not collapse the run to only the first origin.
 8. When results exist, try to include at least one credible fare from each origin before filling the rest with the overall cheapest routes.
 9. **Dates**: Only surface round-trip fares that can still be booked for outbound travel **on or after `{today_iso}`**. Ignore expired sales, archive pages, "last month" blog posts, or itineraries whose trip dates are entirely before `{today_iso}`. Prefer stating `date_range` with explicit **YYYY-MM-DD** when the source gives it.
+10. **Destination mix**: Follow the skill’s **“Destination mix (longer / US-forward)”** rules—emphasize **longer US / transborder** markets when results allow; do not pack the Top N only with ultra-short, structurally cheap hops (nearby Canada, routine short haul, BLI-style border hops unless truly exceptional).

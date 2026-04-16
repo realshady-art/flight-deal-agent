@@ -1,5 +1,5 @@
 app:
-  name: "flight-deal-agent"
+  name: "OrbitScan"
   timezone: "Asia/Shanghai"
 
 origin_airports:

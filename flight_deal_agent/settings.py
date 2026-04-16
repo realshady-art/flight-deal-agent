@@ -89,7 +89,7 @@ class ApiConfig(BaseModel):
 
 
 class AppMeta(BaseModel):
-    name: str = "flight-deal-agent"
+    name: str = "OrbitScan"
     timezone: str = "Asia/Shanghai"
 
 

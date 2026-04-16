@@ -21,7 +21,7 @@ def cmd_run_once(args: argparse.Namespace) -> None:
     from flight_deal_agent.runner import run_once
     summary = run_once(args.config, regions_dir=args.regions_dir)
     print(
-        f"[flight-deal-agent] run={summary.run_id} "
+        f"[OrbitScan] run={summary.run_id} "
         f"tasks={summary.task_count} api_calls={summary.api_calls} "
         f"quotes={summary.quote_count} deals={summary.deal_count} "
         f"errors={len(summary.errors)}"
@@ -51,14 +51,14 @@ def cmd_serve(args: argparse.Namespace) -> None:
     if not args.no_scheduler:
         sched.start()
         print(
-            f"[flight-deal-agent] Scheduler started "
+            f"[OrbitScan] Scheduler started "
             f"(interval={config.scheduler.label})"
         )
 
     host = args.host or config.api.host
     port = args.port or config.api.port
     print(
-        f"[flight-deal-agent] Control room serving on "
+        f"[OrbitScan] Control room serving on "
         f"http://{host}:{port}"
     )
     uvicorn.run(app, host=host, port=port, log_level="info")

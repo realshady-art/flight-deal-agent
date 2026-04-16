@@ -1,6 +1,6 @@
 ---
 name: flight-hourly-web-search
-description: Search current low-fare flights from a configured origin to a configured destination scope using web search only. Use for the flight-deal-agent hourly terminal/dashboard workflow when the result must avoid paid APIs and browser automation, and return a structured top-N list with links and a short narrative summary.
+description: Search current low-fare flights from a configured origin to a configured destination scope using web search only. Use for the OrbitScan (flight-deal-agent repo) hourly terminal/dashboard workflow when the result must avoid paid APIs and browser automation, and return a structured top-N list with links and a short narrative summary.
 ---
 
 # Flight Hourly Web Search

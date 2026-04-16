@@ -1,5 +1,5 @@
 app:
-  name: "flight-deal-agent"
+  name: "OrbitScan"
   timezone: "America/Vancouver"
 
 origin_region_id: "us_ca_major"

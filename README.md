@@ -1,12 +1,13 @@
-# flight-deal-agent
+# OrbitScan
 
-A flight monitoring project that can run in two modes:
+**OrbitScan** 是一套围绕「航线与票价」的本地监控与看板：**orbit** 指航线在地球上划过的轨迹，**scan** 指按固定节奏对公开网页做检索与汇总。它把多出发机场、目的地范围与定时任务收束成一块只读的 **Top N 低价航线看板**，并保留每次检索的运行日志，方便核对与复盘。
 
-- a traditional pipeline with collectors, storage, rules, and notifications
-- a local Codex-powered web-search dashboard that refreshes hourly and shows the current best fares
+本仓库在 GitHub 上仍使用历史目录名 **`flight-deal-agent`**（克隆后文件夹名不变），产品对外名称统一为 **OrbitScan**。
 
-Repository:
-`https://github.com/realshady-art/flight-deal-agent`
+仓库地址：  
+https://github.com/realshady-art/flight-deal-agent
+
+---
 
 ## Current Product State
 
@@ -83,10 +84,12 @@ Ranking merges both origins then sorts primarily by **lowest numeric price** (`p
 git clone https://github.com/realshady-art/flight-deal-agent.git
 cd flight-deal-agent
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -U pip
 pip install -e ".[dev]"
 ```
+
+CLI entry points: `orbitscan`（推荐）与 `flight-deal-agent`（兼容旧文档）均指向同一程序。
 
 ### 2. Run tests
 

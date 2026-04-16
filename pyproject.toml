@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "flight-deal-agent"
+name = "orbitscan"
 version = "0.2.1"
-description = "按区域监控往返特价航班的 agentic 后端"
+description = "OrbitScan：按区域与定时任务监控低价航线（本地看板 + 可选 API 采集管线）"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
@@ -28,6 +28,7 @@ dev = [
 ]
 
 [project.scripts]
+orbitscan = "flight_deal_agent.cli:main"
 flight-deal-agent = "flight_deal_agent.cli:main"
 
 [tool.hatch.build.targets.wheel]

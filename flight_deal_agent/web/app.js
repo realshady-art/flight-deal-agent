@@ -11,7 +11,7 @@ const FIXED_BOARD_ROUTE_COUNT = 10;
 
 const I18N = {
   zh: {
-    "doc.title": "机票低价看板 · flight-deal-agent",
+    "doc.title": "机票低价看板 · OrbitScan",
     "logo.aria": "返回首页",
     "lang.groupAria": "界面语言",
     "nav.tag": "机票 · 航线监控",
@@ -125,7 +125,7 @@ const I18N = {
     "status.refreshFail": "自动刷新失败：{error}",
   },
   en: {
-    "doc.title": "Low-fare board · flight-deal-agent",
+    "doc.title": "Low-fare board · OrbitScan",
     "logo.aria": "Back to home",
     "lang.groupAria": "Interface language",
     "nav.tag": "Flights · route watch",

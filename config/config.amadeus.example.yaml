@@ -5,7 +5,7 @@
 # 4) 再运行: python -m flight_deal_agent run-once
 
 app:
-  name: "flight-deal-agent"
+  name: "OrbitScan"
   timezone: "Asia/Shanghai"
 
 origin_airports:

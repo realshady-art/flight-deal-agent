@@ -60,7 +60,7 @@ def open_browser_later(url: str, delay: float = 2.0) -> None:
 
 def main() -> int:
     ensure_venv_exec()
-    parser = argparse.ArgumentParser(description="Launch the flight-deal-agent control room")
+    parser = argparse.ArgumentParser(description="Launch the OrbitScan (flight-deal-agent) control room")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
     parser.add_argument(

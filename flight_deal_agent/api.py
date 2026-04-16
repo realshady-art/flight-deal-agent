@@ -30,7 +30,7 @@ from flight_deal_agent.storage import (
     init_db,
 )
 
-app = FastAPI(title="flight-deal-agent", version="0.2.1")
+app = FastAPI(title="OrbitScan", version="0.2.1")
 WEB_DIR = Path(__file__).parent / "web"
 
 _config_path: Optional[Path] = None
